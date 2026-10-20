@@ -561,7 +561,7 @@ kbd {
 
 /* ---- Edit mode and duplicates ------------------------------------------ */
 .footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
-.check {
+.row-check {
   display: grid;
   flex: none;
   place-items: center;
@@ -572,16 +572,53 @@ kbd {
   color: transparent;
   transition: background-color var(--duration-fast) var(--ease-smooth), box-shadow var(--duration-fast) var(--ease-smooth);
 }
-.check .icon { width: 12px; height: 12px; }
-.check[data-checked="true"] { background: var(--color-accent); box-shadow: none; color: var(--color-on-accent); }
+.row-check .icon { width: 12px; height: 12px; }
+.row-check[data-checked="true"] { background: var(--color-accent); box-shadow: none; color: var(--color-on-accent); }
 .snippet-row--editing[aria-selected="true"] { background: var(--color-accent-soft); box-shadow: inset 0 0 0 0.5px var(--color-accent-ring); }
 .dup-warn { display: inline-grid; flex: none; place-items: center; color: var(--color-warning); }
 .dup-warn .icon { width: 16px; height: 16px; }
 .folder-item--warning { color: var(--color-warning); }
 .folder-item--warning > .icon { width: 14px; height: 14px; flex: none; }
 .folder-item--warning .count { color: var(--color-warning); }
-.check:not([data-checked="true"]) .icon { visibility: hidden; }
+.row-check:not([data-checked="true"]) .icon { visibility: hidden; }
 /* In edit mode the footer holds more buttons: the count stays on one line and the actions wrap below it. */
 .list-footer { flex-wrap: wrap; row-gap: var(--space-2); }
 .list-footer > span:first-child { white-space: nowrap; }
 .list-footer .footer-actions { margin-left: auto; }
+
+/* ---- Folder picker ------------------------------------------------------ */
+.combo { position: relative; }
+.combo .input { width: 100%; padding-right: 36px; }
+.combo-caret { position: absolute; top: 50%; right: 12px; display: grid; color: var(--color-text-subtle); transform: translateY(-50%); pointer-events: none; }
+.combo-caret .icon { width: 16px; height: 16px; }
+.combo-list {
+  position: absolute;
+  z-index: 15;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-elevated);
+  animation: freevy-pop var(--duration-fast) var(--ease-smooth);
+}
+.combo-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.combo-option[aria-selected="true"] { background: var(--color-hover); }
+.combo-option .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--folder-color, transparent); box-shadow: inset 0 0 0 1px var(--color-text-subtle); }
+.combo-option .dot[data-color] { box-shadow: none; }
+.combo-option .icon { width: 14px; height: 14px; flex: none; color: var(--color-accent); }
+.combo-option--create { color: var(--color-accent); }
+.combo-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-count { color: var(--color-text-subtle); font-size: var(--type-xs); font-variant-numeric: tabular-nums; }

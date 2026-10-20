@@ -228,6 +228,115 @@ async function deleteFolder(folder, count) {
     }
 }
 
+// ---- Folder picker ------------------------------------------------------------------------
+
+/** Options for the folder field: existing folders matching the text, plus "create" for a new name. */
+function folderOptions(text) {
+    const counts = new Map();
+    state.snippets.forEach((s) => s.folder && counts.set(s.folder, (counts.get(s.folder) ?? 0) + 1));
+    const query = text.trim().replace(/^\/+|\/+$/g, '');
+    const lower = query.toLowerCase();
+    const options = [...counts.keys()]
+        .filter((f) => !lower || f.toLowerCase().includes(lower))
+        // Names that start with the text first, then the rest alphabetically.
+        .sort((a, b) => (b.toLowerCase().startsWith(lower) - a.toLowerCase().startsWith(lower)) || a.localeCompare(b))
+        .map((f) => ({ value: f, label: f, count: counts.get(f) }));
+    if (!query) options.unshift({ value: '', label: 'No folder', none: true });
+    else if (![...counts.keys()].some((f) => f.toLowerCase() === lower)) options.push({ value: query, label: `Create folder “${query}”`, create: true });
+    return options;
+}
+
+function renderCombo(input) {
+    const list = input.parentElement.querySelector('.combo-list');
+    // Until the user types, list every folder (the current one highlighted) instead of filtering by it.
+    const typed = input.dataset.typed === 'true';
+    const options = folderOptions(typed ? input.value : '');
+    if (!typed && input.dataset.active === undefined) {
+        input.dataset.active = String(Math.max(0, options.findIndex((o) => o.value === input.value.trim())));
+    }
+    const active = Math.min(Number(input.dataset.active ?? 0), options.length - 1);
+    input.dataset.active = String(Math.max(0, active));
+    list.innerHTML = options.map((o, i) => `
+        <div class="combo-option${o.create ? ' combo-option--create' : ''}" role="option" id="folder-option-${i}" data-value="${escapeHtml(o.value)}" aria-selected="${i === active}">
+            ${o.create ? icon('plus') : o.none ? '<span class="dot"></span>' : `<span class="dot" data-color="${colorFor(o.value)}"></span>`}
+            <span class="combo-label">${escapeHtml(o.label)}</span>
+            ${o.count ? `<span class="combo-count">${number.format(o.count)}</span>` : ''}
+        </div>`).join('');
+    $$('.combo-option .dot[data-color]', list).forEach((dot) => dot.style.setProperty('--folder-color', dot.dataset.color));
+    input.setAttribute('aria-activedescendant', options.length ? `folder-option-${active}` : '');
+    list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+}
+
+function openCombo(input) {
+    const list = input.parentElement.querySelector('.combo-list');
+    if (list.hidden) {
+        delete input.dataset.active;
+        input.dataset.typed = 'false';
+    }
+    list.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    renderCombo(input);
+}
+
+function closeCombo(input) {
+    const list = input.parentElement?.querySelector('.combo-list');
+    if (!list) return;
+    list.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+}
+
+function pickCombo(input, value) {
+    input.value = value;
+    input.dataset.picking = 'true';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    delete input.dataset.picking;
+    closeCombo(input);
+}
+
+document.addEventListener('focusin', (event) => {
+    if (event.target.matches?.('[data-combo]')) openCombo(event.target);
+});
+document.addEventListener('focusout', (event) => {
+    if (event.target.matches?.('[data-combo]')) closeCombo(event.target);
+});
+document.addEventListener('mousedown', (event) => {
+    const option = event.target.closest?.('.combo-option');
+    if (!option) return;
+    // Keep focus in the field, so the click lands before the list closes.
+    event.preventDefault();
+    pickCombo(option.closest('.combo').querySelector('[data-combo]'), option.dataset.value);
+});
+document.addEventListener('keydown', (event) => {
+    const input = event.target;
+    if (!input.matches?.('[data-combo]')) return;
+    const list = input.parentElement.querySelector('.combo-list');
+    const count = list.querySelectorAll('.combo-option').length;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (list.hidden) return openCombo(input);
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        input.dataset.active = String((Number(input.dataset.active ?? 0) + step + count) % count);
+        renderCombo(input);
+    } else if (event.key === 'Enter' && !list.hidden && count) {
+        event.preventDefault();
+        pickCombo(input, list.querySelector('[aria-selected="true"]').dataset.value);
+    } else if (event.key === 'Escape' && !list.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeCombo(input);
+    }
+}, true);
+document.addEventListener('input', (event) => {
+    if (event.target.matches?.('[data-combo]') && document.activeElement === event.target && !event.target.dataset.picking) {
+        event.target.dataset.active = '0';
+        event.target.dataset.typed = 'true';
+        const list = event.target.parentElement.querySelector('.combo-list');
+        list.hidden = false;
+        event.target.setAttribute('aria-expanded', 'true');
+        renderCombo(event.target);
+    }
+});
+
 // ---- Duplicates -----------------------------------------------------------------------
 
 let duplicateCache = { source: null, map: new Map() };
@@ -335,7 +444,7 @@ function renderList() {
         const warning = duplicateNote(s);
         html += `
             <button class="snippet-row${state.editMode ? ' snippet-row--editing' : ''}" role="option" data-id="${s.id}" aria-selected="${state.editMode ? checked : s.id === state.selectedId}" tabindex="-1" data-top="${i * ROW_HEIGHT}">
-                ${state.editMode ? `<span class="check" data-checked="${checked}" aria-hidden="true">${icon('check')}</span>` : ''}
+                ${state.editMode ? `<span class="row-check" data-checked="${checked}" aria-hidden="true">${icon('check')}</span>` : ''}
                 <span class="abbr">${escapeHtml(s.abbreviations[0])}</span>
                 ${warning ? `<span class="dup-warn" title="${escapeHtml(warning)}" aria-label="${escapeHtml(warning)}">${icon('alert')}</span>` : ''}
                 <span class="snippet-text">
@@ -482,7 +591,13 @@ function renderEditor() {
                         ? `<div class="empty">${icon('lock')}<strong>Protected snippet</strong><span>Unlock with your master password to view or edit it.</span><button type="button" class="btn btn--primary btn--small" data-action="unlock">Unlock</button></div>`
                         : `<textarea class="textarea" data-field="expansion" spellcheck="false" placeholder="The text Freevy types for you">${escapeHtml(d.expansion ?? '')}</textarea>`}
                 </label>
-                <label class="field"><span>Folder</span><input class="input" data-field="folder" list="folder-options" value="${escapeHtml(d.folder)}" placeholder="No folder"><datalist id="folder-options">${folders.map((f) => `<option value="${escapeHtml(f)}">`).join('')}</datalist></label>
+                <div class="field"><span id="folder-label">Folder</span>
+                    <div class="combo">
+                        <input class="input" data-field="folder" data-combo="folder" role="combobox" aria-labelledby="folder-label" aria-expanded="false" aria-autocomplete="list" aria-controls="folder-options" autocomplete="off" spellcheck="false" value="${escapeHtml(d.folder)}" placeholder="No folder">
+                        <span class="combo-caret" aria-hidden="true">${icon('folder')}</span>
+                        <div class="combo-list" id="folder-options" role="listbox" hidden></div>
+                    </div>
+                </div>
             </div>
             <div class="options">
                 <div class="option-card"><span class="label">Expand</span>${segmented('Expand', 'trigger', d.trigger, [['after', 'After space'], ['instant', 'Instantly']])}
