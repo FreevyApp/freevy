@@ -50,9 +50,9 @@ Release builds: `build/release.ps1 -Version x.y.z` publishes the app and packs i
 
 Everything lives in `%APPDATA%\Freevy\`: `snippets.json`, `settings.json` (secrets such as the SFTP password are encrypted for your Windows user with DPAPI), `vault.json` (master password check), backups and usage counts. Uninstalling Freevy keeps this folder.
 
-## Code signing
+## Verifying a release
 
-Windows releases are being moved to signing with an Open Source code signing certificate issued to Ozan Kurt, the maintainer; until then they are unsigned. Releases are built from tagged commits of this repository (the [release workflow](.github/workflows/release.yml) builds the same tag on GitHub Actions), each release's checksums are on the [download page](https://freevy.app/download), and installed apps verify every update against its checksum. The only automatic network connection is the update check, which can be turned off in Settings. Details: [freevy.app/code-signing](https://freevy.app/code-signing).
+Releases are not code-signed, on purpose: the source is public, and anyone can read it or build Freevy themselves. Windows therefore shows an "unknown publisher" warning on the installer. Every release is built from a tagged commit of this repository (the [release workflow](.github/workflows/release.yml) builds the same tag on GitHub Actions), its SHA-256 checksum is on the [download page](https://freevy.app/download) and on [GitHub Releases](https://github.com/FreevyApp/freevy/releases), and installed apps verify every update against its checksum before installing it. Details: [freevy.app/code-signing](https://freevy.app/code-signing).
 
 ## License
 

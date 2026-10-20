@@ -7,9 +7,8 @@
 # (forge-manager scripts/publish-freevy-release.js). Earlier releases are fetched from there
 # first, so Velopack can build small delta updates.
 #
-# Signing: pass the thumbprint of the Certum code signing certificate (or set FREEVY_SIGN_THUMBPRINT).
-# Certum keeps the key in its cloud: start SimplySign Desktop and log in first, so the certificate is
-# available to signtool. Without a thumbprint the build is unsigned (as on GitHub Actions).
+# Releases are unsigned on purpose (see README, "Verifying a release"). Signing stays possible: pass the
+# thumbprint of a code signing certificate in the current user's store (or set FREEVY_SIGN_THUMBPRINT).
 param(
     [Parameter(Mandatory = $true)][string]$Version,
     [string]$Feed = 'https://freevy.app/releases',
@@ -42,9 +41,9 @@ $signing = @()
 if ($CertThumbprint) {
     $thumb = $CertThumbprint -replace '\s', ''
     $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Thumbprint -eq $thumb } | Select-Object -First 1
-    if (-not $cert) { throw "No certificate $thumb in the current user's store: is SimplySign Desktop running and logged in?" }
+    if (-not $cert) { throw "No certificate $thumb in the current user's store." }
     Write-Output "== Signing as: $($cert.Subject)"
-    $signing = @('--signParams', "/sha1 $thumb /fd sha256 /tr http://time.certum.pl /td sha256")
+    $signing = @('--signParams', "/sha1 $thumb /fd sha256 /tr http://timestamp.digicert.com /td sha256")
 } else {
     Write-Output '== No certificate given: this build is unsigned'
 }
