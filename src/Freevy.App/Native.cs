@@ -141,4 +141,15 @@ internal static class Native
         ReleaseCapture();
         SendMessage(window, WM_NCLBUTTONDOWN, HTCAPTION, IntPtr.Zero);
     }
+
+    /// <summary>
+    /// Starts a native resize from one edge or corner, as if the user pressed on a real window border.
+    /// <paramref name="hitTest"/> is one of the HT* border codes (HTLEFT = 10 to HTBOTTOMRIGHT = 17).
+    /// </summary>
+    public static void BeginWindowResize(IntPtr window, int hitTest)
+    {
+        const int WM_NCLBUTTONDOWN = 0xA1;
+        ReleaseCapture();
+        SendMessage(window, WM_NCLBUTTONDOWN, hitTest, IntPtr.Zero);
+    }
 }

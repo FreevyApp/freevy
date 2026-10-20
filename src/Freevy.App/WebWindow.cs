@@ -64,7 +64,7 @@ internal sealed class WebWindow : Form
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(1240, 780);
-        MinimumSize = new Size(900, 560);
+        MinimumSize = new Size(760, 480);
         // A thin frame around the web view leaves room for resize hit-testing; the page tints it to its theme.
         Padding = new Padding(ResizeBorder);
         BackColor = Color.FromArgb(40, 46, 70);
@@ -73,6 +73,8 @@ internal sealed class WebWindow : Form
         core.Changed += change => _bridge?.Emit("change", change.ToString().ToLowerInvariant());
         core.Notice += (message, problem) => _bridge?.Emit("notice", new { message, error = problem });
         Load += async (_, _) => await InitializeAsync();
+        // Covers maximizing from the page, Aero Snap and Win+Up alike.
+        Resize += (_, _) => SyncWindowState();
         if (Offscreen)
         {
             StartPosition = FormStartPosition.Manual;
@@ -87,8 +89,21 @@ internal sealed class WebWindow : Form
         await WebHost.InitializeAsync(_view);
         _bridge = new Bridge(_core, this, WindowAction, json => _view.CoreWebView2.PostWebMessageAsString(json));
         _view.CoreWebView2.WebMessageReceived += async (_, e) => await _bridge.HandleAsync(e.TryGetWebMessageAsString());
+        _view.CoreWebView2.NavigationCompleted += (_, _) => SyncWindowState(force: true);
         _view.CoreWebView2.Navigate($"https://{WebHost.HostName}/index.html");
         _ready = true;
+    }
+
+    private FormWindowState _reportedState = (FormWindowState)(-1);
+
+    // The frame and the page's resize handles only make sense on a normal window.
+    private void SyncWindowState(bool force = false)
+    {
+        if (WindowState == FormWindowState.Minimized) return;
+        Padding = new Padding(WindowState == FormWindowState.Maximized ? 0 : ResizeBorder);
+        if (_reportedState == WindowState && !force) return;
+        _reportedState = WindowState;
+        _bridge?.Emit("window", new { maximized = WindowState == FormWindowState.Maximized });
     }
 
     private void WindowAction(string action)
@@ -100,7 +115,6 @@ internal sealed class WebWindow : Form
                 break;
             case "maximize":
                 WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
-                Padding = new Padding(WindowState == FormWindowState.Maximized ? 0 : ResizeBorder);
                 break;
             case "close":
                 Hide();
@@ -123,6 +137,14 @@ internal sealed class WebWindow : Form
                 if (WindowState != FormWindowState.Maximized)
                 {
                     Native.BeginWindowDrag(Handle);
+                }
+
+                break;
+            case var resize when resize.StartsWith("resize:", StringComparison.Ordinal):
+                // Started from a mousedown on one of the page's edge handles: hand the resize to Windows.
+                if (WindowState == FormWindowState.Normal && ResizeEdges.TryGetValue(resize[7..], out var hit))
+                {
+                    Native.BeginWindowResize(Handle, hit);
                 }
 
                 break;
@@ -195,6 +217,11 @@ internal sealed class WebWindow : Form
 
         base.WndProc(ref m);
     }
+
+    private static readonly Dictionary<string, int> ResizeEdges = new()
+    {
+        ["w"] = 10, ["e"] = 11, ["n"] = 12, ["nw"] = 13, ["ne"] = 14, ["s"] = 15, ["sw"] = 16, ["se"] = 17,
+    };
 
     private const int WM_NCHITTEST = 0x84;
     private static readonly IntPtr HTLEFT = 10, HTRIGHT = 11, HTTOP = 12, HTTOPLEFT = 13, HTTOPRIGHT = 14, HTBOTTOM = 15, HTBOTTOMLEFT = 16, HTBOTTOMRIGHT = 17;

@@ -1018,6 +1018,15 @@ $('#titlebar').addEventListener('mousedown', (event) => {
         call('window', { action: 'drag' });
     }
 });
+// Edge handles: Windows takes the resize over from the first mousedown.
+document.querySelector('.resize-edges').addEventListener('mousedown', (event) => {
+    const edge = event.target.closest('[data-edge]')?.dataset.edge;
+    if (event.button === 0 && edge) {
+        event.preventDefault();
+        call('window', { action: `resize:${edge}` });
+    }
+});
+on('window', ({ maximized }) => document.body.classList.toggle('is-maximized', maximized));
 $('#titlebar').addEventListener('dblclick', (event) => {
     if (!event.target.closest('button')) call('window', { action: 'maximize' });
 });

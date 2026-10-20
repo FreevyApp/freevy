@@ -3,7 +3,8 @@
 /* ---- Window shell ------------------------------------------------------ */
 .app {
   display: grid;
-  grid-template-rows: 44px 1fr;
+  /* minmax(0, 1fr) keeps the body at the window height, so long views scroll instead of growing. */
+  grid-template-rows: 44px minmax(0, 1fr);
   height: 100vh;
   background:
     radial-gradient(900px 480px at 100% -20%, var(--color-accent-faint), transparent 70%),
@@ -88,7 +89,7 @@
   .window-button--close:hover { background: var(--color-danger); color: var(--color-text); }
 }
 
-.body { display: grid; grid-template-columns: 232px 1fr; min-height: 0; }
+.body { display: grid; grid-template-columns: clamp(196px, 20vw, 232px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
 
 /* ---- Sidebar ----------------------------------------------------------- */
 .sidebar {
@@ -182,7 +183,7 @@
 /* Switching views is frequent: a short fade, no movement. */
 .view.is-entering { animation: fade-in var(--duration-fast) var(--ease-smooth); }
 
-.snippets { display: grid; grid-template-columns: minmax(320px, 400px) 1fr; height: 100%; }
+.snippets { display: grid; grid-template-columns: clamp(240px, 32vw, 400px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
 .list-pane { display: flex; flex-direction: column; min-height: 0; border-right: 0.5px solid var(--color-border); }
 
 .search {
@@ -245,7 +246,7 @@ kbd {
 }
 .snippet-text { min-width: 0; flex: 1; }
 .snippet-text .primary { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); }
-.snippet-text .secondary { display: block; font-size: var(--type-xs); color: var(--color-text-subtle); }
+.snippet-text .secondary { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-xs); color: var(--color-text-subtle); }
 .locked { display: inline-flex; align-items: center; gap: 6px; color: var(--color-warning); }
 .locked .icon { width: 14px; height: 14px; }
 
@@ -305,12 +306,12 @@ kbd {
 /* ---- Editor ------------------------------------------------------------ */
 .editor { min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-6); scrollbar-gutter: stable; }
 .editor-card { animation: enter var(--duration-slow) var(--ease-smooth); }
-.editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.editor-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: var(--type-tracking-caps); text-transform: uppercase; color: var(--color-text-subtle); }
 .editor-title { margin-top: var(--space-1); font: 600 var(--type-2xl) / var(--type-2xl-lh) var(--font-mono); letter-spacing: var(--type-tracking-display); }
-.editor-actions { display: flex; gap: var(--space-2); }
+.editor-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-.fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-6); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
 .field { display: grid; gap: 6px; }
 .field--wide { grid-column: 1 / -1; }
 .field > span { font-size: var(--type-xs); color: var(--color-text-muted); }
@@ -343,7 +344,7 @@ kbd {
 .tag button .icon { width: 12px; height: 12px; }
 .tags input { flex: 1; min-width: 80px; height: 26px; border: 0; background: transparent; outline: none; padding-inline: 4px; }
 
-.options { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); margin-top: var(--space-4); }
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
 .option-card { display: grid; align-content: start; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-card); }
 .option-card .label { font-size: var(--type-xs); color: var(--color-text-muted); }
 .option-card .hint { font-size: var(--type-xs); color: var(--color-text-subtle); }
@@ -526,3 +527,24 @@ kbd {
 /* Theme switches cross-fade through the View Transitions API when it is available. */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation-duration: var(--duration-normal); animation-timing-function: var(--ease-smooth); }
+
+/* Short windows: the folder list needs the room more than the daily counter does. */
+@media (max-height: 600px) {
+  .saved-card { display: none; }
+}
+
+/* ---- Resize handles ---------------------------------------------------- */
+/* Thin strips along the window edges; the corners are larger so they are easy to catch. */
+.resize-edge { position: fixed; z-index: 1000; }
+.resize-edge--n, .resize-edge--s { left: 12px; right: 12px; height: 5px; cursor: ns-resize; }
+.resize-edge--e, .resize-edge--w { top: 12px; bottom: 12px; width: 5px; cursor: ew-resize; }
+.resize-edge--n { top: 0; }
+.resize-edge--s { bottom: 0; }
+.resize-edge--e { right: 0; }
+.resize-edge--w { left: 0; }
+.resize-edge--ne, .resize-edge--nw, .resize-edge--se, .resize-edge--sw { width: 12px; height: 12px; }
+.resize-edge--nw { top: 0; left: 0; cursor: nwse-resize; }
+.resize-edge--se { bottom: 0; right: 0; cursor: nwse-resize; }
+.resize-edge--ne { top: 0; right: 0; cursor: nesw-resize; }
+.resize-edge--sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.is-maximized .resize-edges { display: none; }
