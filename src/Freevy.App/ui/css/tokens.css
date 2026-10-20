@@ -1,0 +1,165 @@
+/* polished-ui tokens v2 · default design tokens, plus the Freevy theme system
+   Pull every value in the UI from here; no one-off timings, radii or colors. */
+
+:root {
+  /* ---- Easing ---------------------------------------------------------- */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);    /* default for almost everything */
+  --ease-enter:  cubic-bezier(0.17, 1, 0.32, 1);    /* decorative entrances */
+  --ease-spring: cubic-bezier(0.35, 1.55, 0.65, 1); /* badges, pops, overshoot */
+  --ease-move:   cubic-bezier(0.66, 0, 0.34, 1);    /* symmetric on-screen moves */
+
+  /* ---- Duration -------------------------------------------------------- */
+  --duration-fast:   150ms;
+  --duration-normal: 200ms;
+  --duration-slow:   300ms;
+  --stagger:         40ms;
+
+  /* ---- Motion distances (zeroed under reduced motion) ------------------ */
+  --enter-y:     6px;
+  --enter-blur:  2px;
+  --popover-y:   4px;
+  --press-scale: 0.98;
+
+  /* ---- Corner radius ----------------------------------------------------- */
+  --radius-control: 6px;
+  --radius-card:    12px;
+  --radius-sheet:   24px;
+
+  /* ---- Spacing (4px base) --------------------------------------------- */
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;  --space-4: 16px;
+  --space-5: 20px;  --space-6: 24px;  --space-8: 32px;  --space-10: 40px;
+  --space-12: 48px; --space-16: 64px; --space-24: 96px;
+
+  /* ---- Type scale ------------------------------------------------------- */
+  --type-xs:   0.75rem;   --type-xs-lh:   1rem;
+  --type-sm:   0.875rem;  --type-sm-lh:   1.25rem;
+  --type-base: 1rem;      --type-base-lh: 1.5rem;
+  --type-lg:   1.125rem;  --type-lg-lh:   1.75rem;
+  --type-xl:   1.25rem;   --type-xl-lh:   1.75rem;
+  --type-2xl:  1.5rem;    --type-2xl-lh:  2rem;
+  --type-3xl:  1.875rem;  --type-3xl-lh:  2.25rem;
+  --type-4xl:  2.25rem;   --type-4xl-lh:  2.5rem;
+  --type-tracking-display: -0.02em;
+  --type-tracking-caps:     0.06em;
+
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+
+}
+
+/* Theme primitives with the Freevy defaults. Declared on every themed element too, so
+   each theme starts from the full default set and only overrides what differs. */
+:root, [data-theme] {
+  /* ---- Theme primitives ------------------------------------------------
+     A theme only sets these (see themes.css); every color, ring, glow and
+     shadow below is derived from them. Defaults: the Freevy theme. */
+  --base-h: 268;        /* hue of the neutrals */
+  --base-c: 0.024;      /* how tinted the neutrals are */
+  --accent-l: 0.840;
+  --accent-c: 0.130;
+  --accent-h: 182;
+  --on-accent-l: 0.200; /* text on accent-colored buttons */
+
+  /* Lightness ramp for a dark scheme; surfaces get lighter as they rise. */
+  --l-bg: 0.145;  --l-surface: 0.180;  --l-raised: 0.215;  --l-sunken: 0.125;
+  --l-text: 0.955;  --l-muted: 0.740;  --l-subtle: 0.590;
+  --edge: 255 255 255;  /* hairlines and hover tint: light on dark, dark on light */
+  --edge-a: 0.07;  --hover-a: 0.045;  --ring-a: 0.09;
+  --shadow-rgb: 2 6 23;
+  --shadow-a: 0.45;
+  --glow-a: 0.55;
+}
+
+/* Derived values are declared on every themed element, so a preview card with its own
+   data-theme recomputes them from its own primitives instead of inheriting the page's. */
+:root, [data-theme] {
+  /* ---- Derived colors ---------------------------------------------------- */
+  --color-bg:             oklch(var(--l-bg) var(--base-c) var(--base-h));
+  --color-surface:        oklch(var(--l-surface) calc(var(--base-c) * 1.05) var(--base-h));
+  --color-surface-raised: oklch(var(--l-raised) calc(var(--base-c) * 1.1) var(--base-h));
+  --color-surface-sunken: oklch(var(--l-sunken) calc(var(--base-c) * 0.85) var(--base-h));
+  --color-text:           oklch(var(--l-text) calc(var(--base-c) * 0.35) var(--base-h));
+  --color-text-muted:     oklch(var(--l-muted) calc(var(--base-c) * 0.85) var(--base-h));
+  --color-text-subtle:    oklch(var(--l-subtle) var(--base-c) var(--base-h));
+  --color-border:         rgb(var(--edge) / var(--edge-a));
+  --color-hover:          rgb(var(--edge) / var(--hover-a));
+
+  --color-accent:         oklch(var(--accent-l) var(--accent-c) var(--accent-h));
+  --color-accent-strong:  oklch(calc(var(--accent-l) - 0.06) calc(var(--accent-c) * 1.04) var(--accent-h));
+  --color-accent-soft:    oklch(var(--accent-l) var(--accent-c) var(--accent-h) / 0.13);
+  --color-accent-ring:    oklch(var(--accent-l) var(--accent-c) var(--accent-h) / 0.40);
+  --color-accent-glow:    oklch(var(--accent-l) var(--accent-c) var(--accent-h) / var(--glow-a));
+  --color-accent-faint:   oklch(var(--accent-l) var(--accent-c) var(--accent-h) / 0.07);
+  --color-on-accent:      oklch(var(--on-accent-l) calc(var(--accent-c) * 0.3) var(--accent-h));
+  --color-warning:        oklch(0.850 0.120 85);
+  --color-warning-soft:   oklch(0.850 0.120 85 / 0.12);
+  --color-warning-ring:   oklch(0.850 0.120 85 / 0.35);
+  --color-danger:         oklch(0.720 0.160 25);
+  --color-danger-soft:    oklch(0.720 0.160 25 / 0.14);
+  --color-focus:          var(--color-accent);
+  --color-titlebar:       oklch(var(--l-bg) var(--base-c) var(--base-h) / 0.72);
+
+  /* Depth: brighter hairline ring and a lit top edge (dark), soft tinted layers (light). */
+  --shadow-card:
+    0 0 0 0.5px rgb(var(--edge) / var(--ring-a)),
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--ring-a) * 0.55)),
+    0 1px 2px rgb(var(--shadow-rgb) / var(--shadow-a));
+  --shadow-card-hover:
+    0 0 0 0.5px rgb(var(--edge) / calc(var(--ring-a) * 1.45)),
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--ring-a) * 0.8)),
+    0 4px 12px rgb(var(--shadow-rgb) / var(--shadow-a));
+  --shadow-elevated:
+    0 0 0 0.5px rgb(var(--edge) / calc(var(--ring-a) * 1.35)),
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--ring-a) * 0.9)),
+    0 8px 16px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 0.9)),
+    0 24px 48px -12px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.3));
+  /* Accent glow: only on the primary action, focused fields and the active nav marker. */
+  --glow-accent:
+    0 0 0 0.5px var(--color-accent-ring),
+    0 0 18px -6px var(--color-accent-glow);
+
+  color-scheme: dark;
+}
+
+/* ---- Base polish (new project, so global rules are fine here) -------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: 400 var(--type-sm) / var(--type-sm-lh) var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p, li      { text-wrap: pretty; }
+button, input, textarea, select { font: inherit; color: inherit; }
+/* Components set their own display, which would otherwise beat the hidden attribute.
+   The toast keeps its own hidden state so it can fade out. */
+[hidden]:not(.toast) { display: none !important; }
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(var(--enter-y)); filter: blur(var(--enter-blur)); }
+  to   { opacity: 1; transform: translateY(0);              filter: blur(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --enter-y: 0px;
+    --enter-blur: 0px;
+    --popover-y: 0px;
+    --press-scale: 1;
+    --stagger: 0ms;
+  }
+}

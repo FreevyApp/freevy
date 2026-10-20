@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="freevy">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+<title>Freevy</title>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/themes.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+<!-- One icon set: 24px grid, 1.75 stroke, round caps (stroke settings live in .icon). -->
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M6.5 9.5h.01M10 9.5h.01M13.5 9.5h.01M17 9.5h.01M8 13h.01M12 13h.01M16 13h.01M8 15.5h8"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 4v4.5H8"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10a4 4 0 0 0 .7-7.9A6 6 0 0 0 6.1 9.3 4.6 4.6 0 0 0 7 18.5Z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5 19 6v5.5c0 4.4-3 7.5-7 9-4-1.5-7-4.6-7-9V6Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-minimize" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-maximize" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 19.5H3Z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2.5"/><path d="M8.5 20h7M12 16.5V20"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2h7.2a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.5l.8-12M10 11v5.5M14 11v5.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/><path d="M9.5 8 5.5 12l4 4M5.5 12H15"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3 0-1 .8-1.7 1.9-1.7h2.1a3.7 3.7 0 0 0 3.7-3.8C20.5 6.9 16.7 3.5 12 3.5Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M15.5 5.5l3 3L9 18l-4 1 1-4Z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3.5"/><path d="m10.5 12.5 8-8M15.5 7.5l2 2M17.5 5.5l2 2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4.5v10M8 10.5l4 4 4-4M5 19.5h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.5v-10M8 9.5l4-4 4 4M5 19.5h14"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M13.5 4.5h6v6M19.5 4.5 11 13M17 13.5v4a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3.5 5.5 13.5H12l-1 7 7.5-10H12Z"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="titlebar" id="titlebar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">f</span>Freevy</div>
+    <div class="status-chips" aria-live="polite">
+      <button class="chip chip--accent" id="chip-expansion" title="Turn expansion on or off"><span class="chip-dot"></span><span>Expanding</span></button>
+      <button class="chip" id="chip-sync" title="Sync now"><svg class="icon"><use href="#i-cloud"/></svg><span>Not syncing</span></button>
+      <button class="chip" id="chip-vault" title="Lock or unlock protected snippets" hidden><svg class="icon"><use href="#i-lock"/></svg><span>Vault locked</span></button>
+    </div>
+    <div class="window-controls">
+      <button class="window-button" data-window="minimize" aria-label="Minimize"><svg class="icon"><use href="#i-minimize"/></svg></button>
+      <button class="window-button" data-window="maximize" aria-label="Maximize"><svg class="icon"><use href="#i-maximize"/></svg></button>
+      <button class="window-button window-button--close" data-window="close" aria-label="Close to tray"><svg class="icon"><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="sidebar" aria-label="Sections">
+      <button class="nav-item" data-nav="snippets" aria-current="page"><svg class="icon"><use href="#i-keyboard"/></svg>Snippets<span class="count" id="nav-count"></span></button>
+      <button class="nav-item" data-nav="backups"><svg class="icon"><use href="#i-history"/></svg>Backups</button>
+      <button class="nav-item" data-nav="account"><svg class="icon"><use href="#i-cloud"/></svg>Sync &amp; account</button>
+      <button class="nav-item" data-nav="security"><svg class="icon"><use href="#i-shield"/></svg>Master password</button>
+      <button class="nav-item" data-nav="settings"><svg class="icon"><use href="#i-sliders"/></svg>Settings</button>
+
+      <div class="section-label" id="folders-label">Folders</div>
+      <div class="folder-list" id="folders" aria-labelledby="folders-label"></div>
+
+      <div class="saved-card">
+        <div class="label">Saved you today</div>
+        <div class="value" id="saved-today">0 keystrokes</div>
+        <div class="inline-note" id="saved-detail"></div>
+      </div>
+    </nav>
+
+    <main>
+      <section class="view snippets" data-view="snippets">
+        <div class="list-pane">
+          <label class="search">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <span class="visually-hidden">Search snippets</span>
+            <input id="search" type="search" placeholder="Search snippets" autocomplete="off" spellcheck="false">
+            <kbd>Ctrl F</kbd>
+          </label>
+          <div class="snippet-list" id="list" role="listbox" aria-label="Snippets" tabindex="-1"><div class="list-spacer" id="list-spacer"></div></div>
+          <div class="list-footer"><span id="list-count"></span><button class="btn btn--primary btn--small" id="new-snippet"><svg class="icon"><use href="#i-plus"/></svg>New snippet</button></div>
+        </div>
+        <div class="editor" id="editor"></div>
+      </section>
+
+      <section class="view page" data-view="backups" hidden></section>
+      <section class="view page" data-view="account" hidden></section>
+      <section class="view page" data-view="security" hidden></section>
+      <section class="view page" data-view="settings" hidden></section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden><svg class="icon"><use href="#i-check"/></svg><span id="toast-text"></span></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

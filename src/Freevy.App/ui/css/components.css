@@ -1,0 +1,183 @@
+/* Dialogs, menus, settings rows and form pieces. Values come from tokens.css only. */
+
+/* ---- Clickable status chips ------------------------------------------- */
+button.chip { border: 0; cursor: pointer; transition: transform var(--duration-fast) var(--ease-smooth), background-color var(--duration-fast) var(--ease-smooth); }
+button.chip:active { transform: scale(var(--press-scale)); }
+.chip--off { color: var(--color-text-subtle); }
+
+/* ---- Virtualized snippet list ------------------------------------------ */
+.snippet-list { position: relative; }
+.list-spacer { position: relative; }
+.list-spacer > .snippet-row { position: absolute; left: 0; right: 0; }
+.snippet-row .masked { color: var(--color-text-subtle); font-style: italic; }
+
+/* ---- Folder rows with a menu button -------------------------------------- */
+.folder-row { position: relative; display: flex; align-items: center; }
+.folder-row .folder-item { flex: 1; min-width: 0; padding-right: 36px; }
+.folder-menu-button {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-subtle);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-smooth), background-color var(--duration-fast) var(--ease-smooth);
+}
+.folder-menu-button::after { content: ""; position: absolute; inset: -9px; }
+.folder-menu-button .icon { width: 16px; height: 16px; }
+.folder-row:focus-within .folder-menu-button, .folder-menu-button[aria-expanded="true"] { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .folder-row:hover .folder-menu-button { opacity: 1; }
+  .folder-menu-button:hover { background: var(--color-hover); color: var(--color-text); }
+}
+
+/* ---- Popover menu ---------------------------------------------------------- */
+.menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-elevated);
+  transform-origin: top left;
+  animation: freevy-pop var(--duration-normal) var(--ease-smooth);
+}
+@keyframes freevy-pop {
+  from { opacity: 0; transform: translateY(calc(var(--popover-y) * -1)) scale(0.98); filter: blur(var(--enter-blur)); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-card) - 6px);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+.menu button .icon { width: 16px; height: 16px; color: var(--color-text-muted); }
+.menu button.danger, .menu button.danger .icon { color: var(--color-danger); }
+.menu hr { margin: 4px 6px; border: 0; border-top: 0.5px solid var(--color-border); }
+@media (hover: hover) and (pointer: fine) {
+  .menu button:hover { background: var(--color-hover); }
+}
+
+/* ---- Dialog (native <dialog>; entrance and exit run on CSS alone) -------- */
+.dialog {
+  width: min(440px, calc(100vw - 48px));
+  padding: var(--space-6);
+  border: 0;
+  border-radius: var(--radius-sheet);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-elevated);
+  overscroll-behavior: contain;
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+  transition:
+    opacity var(--duration-normal) var(--ease-smooth),
+    transform var(--duration-normal) var(--ease-smooth),
+    filter var(--duration-normal) var(--ease-smooth),
+    overlay var(--duration-normal) var(--ease-smooth) allow-discrete,
+    display var(--duration-normal) var(--ease-smooth) allow-discrete;
+}
+.dialog:not([open]) { opacity: 0; transform: translateY(calc(var(--enter-y) / 2)) scale(0.98); }
+@starting-style {
+  .dialog[open] { opacity: 0; transform: translateY(var(--enter-y)) scale(0.98); filter: blur(var(--enter-blur)); }
+}
+.dialog[open] { transition-duration: var(--duration-slow); }
+.dialog::backdrop {
+  background: rgb(var(--shadow-rgb) / 0.55);
+  backdrop-filter: blur(2px);
+  transition: background-color var(--duration-normal) var(--ease-smooth), overlay var(--duration-normal) allow-discrete, display var(--duration-normal) allow-discrete;
+}
+@starting-style { .dialog[open]::backdrop { background: transparent; } }
+.dialog h2 { font: 600 var(--type-lg) / var(--type-lg-lh) var(--font-display); }
+.dialog p { margin: var(--space-2) 0 0; color: var(--color-text-muted); }
+.dialog .field { margin-top: var(--space-4); }
+.dialog .check { margin-top: var(--space-4); }
+.dialog .error { margin-top: var(--space-2); color: var(--color-danger); font-size: var(--type-xs); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-6); }
+.btn--danger-solid { background: var(--color-danger); color: oklch(0.99 0 0); box-shadow: none; }
+
+/* ---- Checkbox ---------------------------------------------------------------- */
+.check { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--color-text-muted); cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--color-accent); flex: none; }
+
+/* ---- Settings rows --------------------------------------------------------- */
+.page-narrow { max-width: 760px; }
+.group { margin-top: var(--space-6); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.group-title { padding: var(--space-4) var(--space-5) 0; font: 600 var(--type-base) / var(--type-base-lh) var(--font-display); }
+.group-lead { padding: 2px var(--space-5) var(--space-2); color: var(--color-text-subtle); font-size: var(--type-xs); }
+.row { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4) var(--space-5); }
+.row + .row { border-top: 0.5px solid var(--color-border); }
+.row .text { flex: 1; min-width: 0; }
+.row .text strong { display: block; font-weight: 500; }
+.row .text span { display: block; margin-top: 2px; font-size: var(--type-xs); color: var(--color-text-subtle); }
+.row .control { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+.input--narrow { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+.input--medium { width: 300px; }
+.input--mono { font-family: var(--font-mono); }
+.inline-note { font-size: var(--type-xs); color: var(--color-text-subtle); }
+.inline-note--ok { color: var(--color-accent); }
+.inline-note--warn { color: var(--color-warning); }
+.inline-note--error { color: var(--color-danger); }
+.fingerprint { display: block; margin-top: 4px; font-family: var(--font-mono); font-size: var(--type-xs); word-break: break-all; color: var(--color-text-muted); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3) var(--space-4); padding: var(--space-3) var(--space-5) var(--space-5); }
+.form-grid .field--wide { grid-column: 1 / -1; }
+.input-with-button { display: flex; gap: var(--space-2); }
+.input-with-button .input { flex: 1; min-width: 0; }
+.group-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: 0 var(--space-5) var(--space-5); }
+
+/* ---- Sign-in card ------------------------------------------------------------ */
+.signin { max-width: 440px; margin-top: var(--space-6); padding: var(--space-6); }
+.signin .field + .field { margin-top: var(--space-3); }
+.signin .actions { margin-top: var(--space-5); }
+.signin .error { margin-top: var(--space-3); color: var(--color-danger); font-size: var(--type-xs); }
+
+/* ---- Editor extras -------------------------------------------------------------- */
+.dirty-dot { display: inline-block; width: 8px; height: 8px; margin-left: var(--space-2); border-radius: 50%; background: var(--color-warning); vertical-align: middle; }
+.field-error { margin-top: 4px; color: var(--color-danger); font-size: var(--type-xs); }
+.check-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* ---- Busy shimmer for running work, instead of a spinner ---------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .is-busy {
+    background-image: linear-gradient(100deg, transparent 30%, rgb(var(--edge) / 0.14) 50%, transparent 70%);
+    background-size: 200% 100%;
+    animation: freevy-shimmer 1.4s var(--ease-move) infinite;
+  }
+}
+@keyframes freevy-shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+/* ---- Prompt window (prompt.html) ------------------------------------------------ */
+.prompt { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+.prompt-bar { display: flex; align-items: center; gap: var(--space-2); height: 40px; padding-inline: var(--space-4) var(--space-1); border-bottom: 0.5px solid var(--color-border); user-select: none; }
+.prompt-body { padding: var(--space-5); }
+.prompt-body p { margin: 0 0 var(--space-4); color: var(--color-text-muted); }
+.prompt-row { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); color: var(--color-text-muted); font-size: var(--type-xs); }
+
+/* ---- Spacing utilities (inline style attributes are blocked by the page CSP) ---- */
+.u-m0 { margin: 0; }
+.u-mt-1 { margin-top: 6px; }
+.u-mt-3 { margin-top: var(--space-3); }
+.u-mt-4 { margin-top: var(--space-4); }
+.about { margin: var(--space-6) 0 var(--space-2); }
+
+.toast--problem .icon { color: var(--color-danger); }
+.prompt-bar .window-button { margin-left: auto; }
+
+/* History rows put an abbreviation chip inline with the text. */
+.row .text strong > span.abbr { display: inline-block; min-width: 0; margin: 0 var(--space-2) 0 0; color: var(--color-accent); font-size: var(--type-xs); vertical-align: 1px; }
+.row .text strong > span.locked { display: inline-flex; margin: 0; color: var(--color-warning); font-size: inherit; }

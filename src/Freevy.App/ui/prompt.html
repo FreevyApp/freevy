@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="freevy">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+<title>Unlock Freevy</title>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/themes.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+</svg>
+<div class="prompt">
+  <div class="prompt-bar" id="bar">
+    <span class="brand-mark" aria-hidden="true">f</span>
+    <strong>Unlock protected snippets</strong>
+    <button class="window-button window-button--close" id="cancel-x" aria-label="Cancel"><svg class="icon"><use href="#i-x"/></svg></button>
+  </div>
+  <form class="prompt-body" id="form">
+    <p id="reason">Enter your master password.</p>
+    <label class="field"><span class="visually-hidden">Master password</span><input class="input" id="password" type="password" autocomplete="current-password" placeholder="Master password" required></label>
+    <div class="prompt-row"><span>Stay unlocked for</span><input class="input input--narrow" id="minutes" type="number" min="1" max="1440" value="5"><span>minutes</span></div>
+    <div class="field-error" id="error" hidden></div>
+    <div class="dialog-actions"><button type="button" class="btn btn--ghost" id="cancel">Cancel</button><button type="submit" class="btn btn--primary" id="unlock">Unlock</button></div>
+  </form>
+</div>
+<script src="js/prompt.js"></script>
+</body>
+</html>

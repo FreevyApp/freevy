@@ -1,0 +1,117 @@
+/* Freevy themes. A theme only sets primitives from tokens.css; everything else derives.
+   Keep this file loaded after tokens.css. Add a theme here and to THEMES in js/app.js. */
+
+/* ---- Dark themes ------------------------------------------------------- */
+
+[data-theme="freevy"] {
+  --base-h: 268; --base-c: 0.024;
+  --accent-l: 0.840; --accent-c: 0.130; --accent-h: 182;
+}
+
+[data-theme="violet"] {
+  --base-h: 292; --base-c: 0.030;
+  --accent-l: 0.780; --accent-c: 0.150; --accent-h: 300;
+}
+
+[data-theme="ember"] {
+  --base-h: 45; --base-c: 0.012;
+  --accent-l: 0.790; --accent-c: 0.160; --accent-h: 58;
+  --shadow-rgb: 12 8 4;
+}
+
+[data-theme="forest"] {
+  --base-h: 168; --base-c: 0.020;
+  --accent-l: 0.820; --accent-c: 0.150; --accent-h: 148;
+  --shadow-rgb: 2 12 8;
+}
+
+[data-theme="rose"] {
+  --base-h: 355; --base-c: 0.024;
+  --accent-l: 0.790; --accent-c: 0.130; --accent-h: 2;
+  --shadow-rgb: 16 4 8;
+}
+
+[data-theme="ocean"] {
+  --base-h: 246; --base-c: 0.032;
+  --accent-l: 0.780; --accent-c: 0.130; --accent-h: 236;
+}
+
+[data-theme="gold"] {
+  --base-h: 262; --base-c: 0.020;
+  --accent-l: 0.860; --accent-c: 0.130; --accent-h: 88;
+}
+
+[data-theme="graphite"] {
+  --base-h: 260; --base-c: 0.004;
+  --accent-l: 0.930; --accent-c: 0.004; --accent-h: 260;
+  --on-accent-l: 0.180;
+  --glow-a: 0.25;
+  --shadow-rgb: 0 0 0;
+}
+
+[data-theme="synthwave"] {
+  --base-h: 298; --base-c: 0.050;
+  --accent-l: 0.740; --accent-c: 0.200; --accent-h: 342;
+  --on-accent-l: 0.985;
+  --glow-a: 0.75;
+  --shadow-rgb: 12 2 20;
+}
+
+[data-theme="crimson"] {
+  --base-h: 18; --base-c: 0.014;
+  --accent-l: 0.680; --accent-c: 0.190; --accent-h: 25;
+  --on-accent-l: 0.985;
+  --shadow-rgb: 14 4 4;
+}
+
+/* True black for OLED screens: the lowest surfaces turn off entirely. */
+[data-theme="midnight"] {
+  --base-h: 265; --base-c: 0.010;
+  --accent-l: 0.840; --accent-c: 0.130; --accent-h: 182;
+  --l-bg: 0.000; --l-surface: 0.150; --l-raised: 0.190; --l-sunken: 0.080;
+  --shadow-rgb: 0 0 0;
+}
+
+/* ---- Light themes ------------------------------------------------------
+   Light schemes flip the lightness ramp, use dark hairlines, and rely on soft
+   tinted shadows instead of lit edges. */
+
+[data-theme="daylight"],
+[data-theme="sand"],
+[data-theme="mint"] {
+  --l-bg: 0.972; --l-surface: 0.995; --l-raised: 1; --l-sunken: 0.945;
+  --l-text: 0.220; --l-muted: 0.450; --l-subtle: 0.580;
+  --edge: 15 23 42;
+  --edge-a: 0.09; --hover-a: 0.045; --ring-a: 0.08;
+  --shadow-rgb: 15 23 42;
+  --shadow-a: 0.07;
+  --glow-a: 0.30;
+  --on-accent-l: 0.990;
+  color-scheme: light;
+
+  --color-warning:      oklch(0.620 0.140 70);
+  --color-warning-soft: oklch(0.620 0.140 70 / 0.12);
+  --color-warning-ring: oklch(0.620 0.140 70 / 0.35);
+  --color-danger:       oklch(0.570 0.190 25);
+  --color-danger-soft:  oklch(0.570 0.190 25 / 0.10);
+  --color-titlebar:     oklch(var(--l-bg) var(--base-c) var(--base-h) / 0.80);
+}
+
+[data-theme="daylight"] {
+  --base-h: 250; --base-c: 0.010;
+  --accent-l: 0.600; --accent-c: 0.120; --accent-h: 192;
+}
+
+[data-theme="sand"] {
+  --base-h: 75; --base-c: 0.018;
+  --accent-l: 0.600; --accent-c: 0.140; --accent-h: 45;
+  --shadow-rgb: 40 28 12;
+  --edge: 40 28 12;
+}
+
+[data-theme="mint"] {
+  --base-h: 165; --base-c: 0.014;
+  --accent-l: 0.580; --accent-c: 0.120; --accent-h: 168;
+  --shadow-rgb: 8 30 24;
+  --edge: 8 30 24;
+}
