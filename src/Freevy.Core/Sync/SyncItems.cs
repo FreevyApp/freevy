@@ -36,6 +36,11 @@ public static class SyncItems
         json["description"] = snippet.Description;
         json["folder"] = snippet.Folder;
         json["case"] = snippet.Case.ToString();
+        if (snippet.LineBreaks is { } lineBreaks)
+        {
+            json["line_breaks"] = lineBreaks.ToString();
+        }
+
         json["trigger"] = snippet.Trigger.ToString();
         json["created"] = FormatDate(snippet.Created);
         json["modified"] = FormatDate(snippet.Modified);
@@ -66,7 +71,8 @@ public static class SyncItems
             ParseDate(Text(item, "modified")),
             sealedExpansion is not null,
             sealedExpansion,
-            id);
+            id,
+            Enum.TryParse<LineBreakMode>(Text(item, "line_breaks"), out var lineBreaks) ? lineBreaks : null);
     }
 
     public static JsonElement FromVault(VaultHeader header) => JsonSerializer.SerializeToElement(new JsonObject

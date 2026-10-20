@@ -154,6 +154,7 @@ internal sealed class WebWindow : Form
     public void ShowAndActivate()
     {
         Show();
+        _bridge?.Emit("opened");
         if (Offscreen)
         {
             return;

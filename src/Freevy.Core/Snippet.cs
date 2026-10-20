@@ -25,6 +25,7 @@ public enum CaseMode
 }
 
 /// <param name="Id">Stable identity used by sync; <see cref="Guid.Empty"/> only in data written before ids existed.</param>
+/// <param name="LineBreaks">How this snippet's line breaks are sent; null follows the setting.</param>
 /// <param name="Protected">
 /// When true the expansion is kept only in <paramref name="Encrypted"/> (sealed with the
 /// master password) and <paramref name="Expansion"/> is empty.
@@ -40,4 +41,5 @@ public sealed record Snippet(
     DateTime? Modified,
     bool Protected = false,
     string? Encrypted = null,
-    Guid Id = default);
+    Guid Id = default,
+    LineBreakMode? LineBreaks = null);

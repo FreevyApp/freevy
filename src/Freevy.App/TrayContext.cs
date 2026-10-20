@@ -23,6 +23,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         _core = new AppCore(store, _ui) { RequestUnlock = AskForMasterPassword };
+        _core.RequestInputs = requests => FillWindow.AskAsync(requests, _core.Settings.Theme);
 
         _enabledItem = new ToolStripMenuItem("Expansion enabled", null, (_, _) =>
             _core.SaveSettings(_core.Settings with { ExpansionEnabled = !_core.Settings.ExpansionEnabled }));
@@ -38,7 +39,7 @@ internal sealed class TrayContext : ApplicationContext
             }
         });
 
-        var updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) => _core.Updates.RestartToUpdate()) { Visible = false };
+        var updateItem = new ToolStripMenuItem("Restart to update", null, async (_, _) => await _core.Updates.InstallNowAsync()) { Visible = false };
         var menu = new ContextMenuStrip();
         var openItem = new ToolStripMenuItem("Open Freevy", null, (_, _) => ShowWindow()) { Font = new Font(SystemFonts.MenuFont!, FontStyle.Bold) };
         menu.Items.AddRange(
@@ -79,6 +80,13 @@ internal sealed class TrayContext : ApplicationContext
         // freevy:// links (browser sign-in) arrive from the process Windows starts for them.
         _links = new LinkChannel(_ui, OpenLink);
 
+        _core.Updates.Available += version =>
+        {
+            updateItem.Text = $"Install Freevy {version}";
+            updateItem.Visible = true;
+            _core.Notify($"Freevy {version} is available. Install it from Settings or the tray menu.");
+            _core.RaiseChanged(Change.Settings);
+        };
         _core.Updates.Ready += version =>
         {
             updateItem.Text = $"Restart to update to {version}";

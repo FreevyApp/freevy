@@ -74,6 +74,11 @@ public sealed class DataStore(string directory)
 
     public SyncState LoadSyncState() => Read<SyncState>(SyncStatePath) ?? new SyncState();
 
+    /// <summary>When Freevy last asked freevy.app for updates, so "every week" survives restarts.</summary>
+    public DateTime? LoadLastUpdateCheck() => Read<UpdateCheckState>(Path.Combine(Directory, "update-check.json"))?.LastCheckUtc;
+
+    public void SaveLastUpdateCheck(DateTime utc) => Write(Path.Combine(Directory, "update-check.json"), new UpdateCheckState(utc));
+
     public UsageStats LoadStats() => Read<UsageStats>(Path.Combine(Directory, StatsFileName)) ?? new UsageStats();
 
     public void SaveStats(UsageStats stats) => Write(Path.Combine(Directory, StatsFileName), stats);
@@ -104,6 +109,8 @@ public sealed class DataStore(string directory)
         File.Copy(SnippetsPath, backup);
         return backup;
     }
+
+    private sealed record UpdateCheckState(DateTime LastCheckUtc);
 
     private static T? Read<T>(string path) where T : class =>
         File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), Options) : null;

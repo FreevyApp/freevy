@@ -4,6 +4,7 @@ using Freevy.Core;
 using Freevy.Core.Backup;
 using Freevy.Core.Import.Breevy;
 using Freevy.Core.Security;
+using Freevy.Core.Macros;
 using Freevy.Core.Sync;
 using Microsoft.Win32;
 
@@ -31,7 +32,7 @@ internal sealed class AppCore : IDisposable
     private Settings _settings = new();
     private IReadOnlyList<Snippet> _snippets = [];
     private ExpansionEngine _engine = new([], Settings.DefaultDelimiters);
-    private OutputSender _output = new(new Settings().ClipboardThreshold);
+    private OutputSender _output = new(new Settings().ClipboardThreshold, new Settings().LineBreaks);
     private UsageStats _stats;
     private bool _statsDirty;
     private bool _busy;
@@ -101,6 +102,9 @@ internal sealed class AppCore : IDisposable
     /// <summary>Set by the UI layer: asks for the master password; returns whether the vault is now unlocked.</summary>
     public Func<string, Task<bool>>? RequestUnlock { get; set; }
 
+    /// <summary>Asks for %(Input)/%(Fill) values before typing; null means the user cancelled.</summary>
+    public Func<IReadOnlyList<InputRequest>, Task<IReadOnlyDictionary<string, string>?>>? RequestInputs { get; set; }
+
     public VaultSession Vault { get; }
 
     public BackupManager Backups { get; }
@@ -110,7 +114,15 @@ internal sealed class AppCore : IDisposable
     /// <summary>Updates from freevy.app; inactive unless Freevy was installed with its installer.</summary>
     public AppUpdater Updates { get; } = new();
 
-    private void WireUpdates() => Updates.Enabled = () => _settings.AutoUpdate;
+    private void WireUpdates()
+    {
+        Updates.Enabled = () => _settings.AutoUpdate;
+        Updates.AutoInstall = () => _settings.AutoInstallUpdates;
+        Updates.Interval = () => TimeSpan.FromHours(Math.Max(1, _settings.UpdateCheckHours));
+        Updates.LastCheckedUtc = _store.LoadLastUpdateCheck();
+        Updates.Checked = utc => _store.SaveLastUpdateCheck(utc);
+        Updates.StatusChanged += () => Changed?.Invoke(Change.Settings);
+    }
 
     /// <summary>Shows a message in the window (or as a tray balloon while it is hidden).</summary>
     public void Notify(string message, bool problem = false) => Notice?.Invoke(message, problem);
@@ -134,7 +146,7 @@ internal sealed class AppCore : IDisposable
     // ---- Snippets ---------------------------------------------------------
 
     public Snippet SaveSnippet(Guid? id, IReadOnlyList<string> abbreviations, string? expansion, string description, string folder,
-        TriggerFlags trigger, CaseMode caseMode, bool isProtected)
+        TriggerFlags trigger, CaseMode caseMode, bool isProtected, LineBreakMode? lineBreaks = null)
     {
         var cleaned = abbreviations.Select(a => a.Trim()).Where(a => a.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         if (cleaned.Count == 0)
@@ -173,7 +185,7 @@ internal sealed class AppCore : IDisposable
 
         var now = DateTime.Now;
         var snippet = new Snippet(cleaned, text, description.Trim(), caseMode, trigger, folder.Trim().Trim('/'),
-            previous?.Created ?? now, now, isProtected, encrypted, previous?.Id ?? Guid.NewGuid());
+            previous?.Created ?? now, now, isProtected, encrypted, previous?.Id ?? Guid.NewGuid(), lineBreaks);
 
         var list = _snippets.ToList();
         var index = previous is null ? -1 : list.FindIndex(s => s.Id == previous.Id);
@@ -188,6 +200,31 @@ internal sealed class AppCore : IDisposable
 
         SaveSnippets(list);
         return snippet;
+    }
+
+    /// <summary>Moves snippets into one folder ("" for none); returns how many actually moved.</summary>
+    public int MoveSnippets(IReadOnlyCollection<Guid> ids, string folder)
+    {
+        var target = folder.Trim().Trim('/');
+        var now = DateTime.Now;
+        var moved = 0;
+        var list = _snippets.Select(s =>
+        {
+            if (!ids.Contains(s.Id) || s.Folder == target)
+            {
+                return s;
+            }
+
+            moved++;
+            return s with { Folder = target, Modified = now };
+        }).ToList();
+
+        if (moved > 0)
+        {
+            SaveSnippets(list);
+        }
+
+        return moved;
     }
 
     public void DeleteSnippets(IReadOnlyCollection<Guid> ids) =>
@@ -496,8 +533,7 @@ internal sealed class AppCore : IDisposable
                 }
                 else
                 {
-                    _output.Replace(expansion.Deleted, expansion.Text);
-                    CountExpansion(expansion.Deleted, expansion.Text);
+                    await TypeAsync(expansion.Deleted, expansion.Text[..^expansion.Suffix.Length], expansion.Suffix, expansion.Snippet.LineBreaks, target);
                 }
             }
             catch (Exception ex)
@@ -544,9 +580,49 @@ internal sealed class AppCore : IDisposable
             return;
         }
 
-        _output.Replace(expansion.Deleted, text + expansion.Suffix);
-        CountExpansion(expansion.Deleted, text + expansion.Suffix);
+        await TypeAsync(expansion.Deleted, text, expansion.Suffix, expansion.Snippet.LineBreaks, target);
     }
+
+    /// <summary>
+    /// Types an expansion; text with Breevy-style macros goes through the macro renderer.
+    /// <paramref name="suffix"/> is the delimiter the user typed and is always sent as keys.
+    /// </summary>
+    private async Task TypeAsync(string deleted, string text, string suffix, LineBreakMode? lineBreaks, IntPtr target)
+    {
+        if (!MacroParser.HasMacros(text))
+        {
+            _output.Replace(deleted, text, suffix, lineBreaks);
+            CountExpansion(deleted, text + suffix);
+            return;
+        }
+
+        string? Clip() => Clipboard.ContainsText() ? Clipboard.GetText() : null;
+        var requests = MacroRenderer.InputsNeeded(text, new MacroContext { FindAbbreviation = FindExpansion });
+        IReadOnlyDictionary<string, string> answers = new Dictionary<string, string>();
+        if (requests.Count > 0)
+        {
+            if (RequestInputs is null || await RequestInputs(requests) is not { } given)
+            {
+                return;
+            }
+
+            answers = given;
+            // The fill-in window took focus; give it back to the app the abbreviation was typed in.
+            Native.SetForegroundWindow(target);
+            await Task.Delay(150);
+        }
+
+        var plan = MacroRenderer.Render(text, new MacroContext { Clipboard = Clip, FindAbbreviation = FindExpansion, Inputs = answers });
+        await _output.RunAsync(deleted, plan, suffix, lineBreaks);
+        CountExpansion(deleted, plan.TypedText + suffix);
+    }
+
+    /// <summary>%(Abbrev name): the expansion of another snippet. Protected snippets are never pulled in.</summary>
+    private string? FindExpansion(string abbreviation) =>
+        _snippets.FirstOrDefault(s => !s.Protected && s.Abbreviations.Any(a => a.Equals(abbreviation, StringComparison.OrdinalIgnoreCase)))?.Expansion;
+
+    /// <summary>For the editor: what an expansion would type, with keys and fill-ins shown as markers.</summary>
+    public MacroPreviewResult PreviewExpansion(string text) => MacroPreview.Describe(text, FindExpansion);
 
     private void CountExpansion(string typed, string inserted)
     {
@@ -573,7 +649,7 @@ internal sealed class AppCore : IDisposable
             _snippets = _store.LoadSnippets();
             _settings = _store.LoadSettings();
             _engine = new ExpansionEngine(_snippets, _settings.Delimiters);
-            _output = new OutputSender(_settings.ClipboardThreshold);
+            _output = new OutputSender(_settings.ClipboardThreshold, _settings.LineBreaks);
             Changed?.Invoke(Change.Snippets);
             Changed?.Invoke(Change.Settings);
         }

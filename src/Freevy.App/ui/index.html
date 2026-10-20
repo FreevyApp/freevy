@@ -15,6 +15,10 @@
 <svg class="sprite" aria-hidden="true">
   <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M6.5 9.5h.01M10 9.5h.01M13.5 9.5h.01M17 9.5h.01M8 13h.01M12 13h.01M16 13h.01M8 15.5h8"/></symbol>
   <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 4v4.5H8"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.67.42l1.88 3.81 4.2.61a.75.75 0 01.42 1.28l-3.04 2.96.72 4.19a.75.75 0 01-1.09.79L8 12.33l-3.76 1.98a.75.75 0 01-1.09-.79l.72-4.19L.83 6.37a.75.75 0 01.42-1.28l4.2-.61L7.33.67A.75.75 0 018 .25z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10a4 4 0 0 0 .7-7.9A6 6 0 0 0 6.1 9.3 4.6 4.6 0 0 0 7 18.5Z"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
   <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></symbol>
@@ -46,10 +50,11 @@
 
 <div class="app">
   <header class="titlebar" id="titlebar">
-    <div class="brand"><span class="brand-mark"><svg class="brand-glyph" viewBox="24 21 53 58" aria-hidden="true"><rect x="24" y="21" width="12" height="58" rx="6"/><rect x="43" y="21" width="33" height="12" rx="6"/><rect x="43" y="44" width="19" height="12" rx="6"/><circle cx="71" cy="50" r="5.5"/></svg></span>Freevy</div>
+    <div class="brand"><span class="brand-mark"><svg class="brand-glyph" viewBox="24 21 53 58" aria-hidden="true"><rect x="24" y="21" width="12" height="58" rx="6"/><rect x="43" y="21" width="33" height="12" rx="6"/><rect x="43" y="44" width="19" height="12" rx="6"/><circle cx="71" cy="50" r="5.5"/></svg></span>Freevy<button class="app-version" id="app-version" title="Version and updates"></button></div>
     <div class="status-chips" aria-live="polite">
       <button class="chip chip--accent" id="chip-expansion" title="Turn expansion on or off"><span class="chip-dot"></span><span>Expanding</span></button>
       <button class="chip" id="chip-sync" title="Sync now"><svg class="icon"><use href="#i-cloud"/></svg><span>Not syncing</span></button>
+      <button class="chip" id="chip-github" title="Star Freevy on GitHub"><svg class="icon icon--fill"><use href="#i-github"/></svg><span>GitHub</span><span class="chip-stars" id="github-stars" hidden><svg class="icon icon--fill"><use href="#i-star"/></svg><span></span></span></button>
       <button class="chip" id="chip-vault" title="Lock or unlock protected snippets" hidden><svg class="icon"><use href="#i-lock"/></svg><span>Vault locked</span></button>
     </div>
     <div class="window-controls">
@@ -80,16 +85,28 @@
     <main>
       <section class="view snippets" data-view="snippets">
         <div class="list-pane">
-          <label class="search">
-            <svg class="icon"><use href="#i-search"/></svg>
-            <span class="visually-hidden">Search snippets</span>
-            <input id="search" type="search" placeholder="Search snippets" autocomplete="off" spellcheck="false">
-            <kbd>Ctrl F</kbd>
-          </label>
+          <div class="list-head">
+            <button class="edit-toggle" id="edit-toggle" aria-pressed="false" title="Select snippets to move or delete"><svg class="icon"><use href="#i-pencil"/></svg><span class="visually-hidden">Edit</span></button>
+            <label class="search">
+              <svg class="icon"><use href="#i-search"/></svg>
+              <span class="visually-hidden">Search snippets</span>
+              <input id="search" type="search" placeholder="Search snippets" autocomplete="off" spellcheck="false">
+              <kbd>Ctrl F</kbd>
+            </label>
+          </div>
           <div class="snippet-list" id="list" role="listbox" aria-label="Snippets" tabindex="-1"><div class="list-spacer" id="list-spacer"></div></div>
           <div class="list-footer" id="list-footer"></div>
         </div>
-        <div class="editor" id="editor"></div>
+        <div class="editor-pane" id="editor-pane">
+          <div class="editor" id="editor"></div>
+          <div class="save-bar" id="save-bar" role="status" hidden>
+            <span>You have unsaved changes.</span>
+            <span class="save-bar-actions">
+              <button class="btn btn--ghost btn--small" data-action="discard"><svg class="icon"><use href="#i-undo"/></svg>Discard</button>
+              <button class="btn btn--primary btn--small" data-action="save" title="Ctrl S"><svg class="icon"><use href="#i-check"/></svg>Save</button>
+            </span>
+          </div>
+        </div>
       </section>
 
       <section class="view page" data-view="backups" hidden></section>

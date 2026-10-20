@@ -4,6 +4,18 @@ using Freevy.Core.Sync;
 
 namespace Freevy.Core;
 
+public enum LineBreakMode
+{
+    /// <summary>Paste expansions that contain a line break through the clipboard.</summary>
+    Paste = 0,
+
+    /// <summary>Type line breaks as Shift+Enter, a new line without sending in most chat apps.</summary>
+    ShiftEnter = 1,
+
+    /// <summary>Type line breaks as Enter.</summary>
+    Enter = 2,
+}
+
 public sealed record Settings
 {
     public const string DefaultDelimiters = ",.?!()<>[]{}:;\"/\\-' \t\n";
@@ -16,6 +28,12 @@ public sealed record Settings
 
     /// <summary>Expansions longer than this are pasted through the clipboard instead of typed.</summary>
     public int ClipboardThreshold { get; init; } = 3500;
+
+    /// <summary>
+    /// How line breaks inside an expansion reach the app. Typing Enter sends the message in chat
+    /// apps (Slack, Discord, Teams), so multi-line expansions are pasted by default.
+    /// </summary>
+    public LineBreakMode LineBreaks { get; init; } = LineBreakMode.Paste;
 
     /// <summary>Trigger used for snippets created in the editor.</summary>
     public TriggerFlags DefaultTrigger { get; init; } = TriggerFlags.WordStart | TriggerFlags.AfterDelimiter;
@@ -42,8 +60,20 @@ public sealed record Settings
     /// <summary>Check freevy.app for new versions and install them in the background.</summary>
     public bool AutoUpdate { get; init; } = true;
 
+    /// <summary>
+    /// With <see cref="AutoUpdate"/> on: download new versions and install them on exit. Off: only
+    /// tell the user a new version exists and install it when they choose to.
+    /// </summary>
+    public bool AutoInstallUpdates { get; init; } = true;
+
+    /// <summary>Hours between automatic update checks (1, 6, 24 or 168 in the UI).</summary>
+    public int UpdateCheckHours { get; init; } = 6;
+
     /// <summary>Name of the UI theme (see ui/css/themes.css in the app).</summary>
     public string Theme { get; init; } = "freevy";
+
+    /// <summary>The one-time "star us on GitHub" request was answered, either way.</summary>
+    public bool StarPromptDone { get; init; }
 
     public bool IsMasked(Snippet snippet) =>
         MaskFoldersContaining.Length > 0

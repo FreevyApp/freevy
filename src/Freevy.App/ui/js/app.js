@@ -121,6 +121,12 @@ function tintWindowFrame() {
 
 function renderChrome() {
     const app = state.app;
+    const version = $('#app-version');
+    const update = app.update?.ready ?? app.update?.available;
+    const shown = String(app.version ?? '').split('+')[0];
+    version.textContent = /^\d/.test(shown) ? `v${shown}` : shown;
+    version.classList.toggle('has-update', Boolean(update));
+    version.title = update ? `Freevy ${update} is available` : 'Version and updates';
     const expansion = $('#chip-expansion');
     expansion.className = `chip ${app.settings.expansionEnabled ? 'chip--accent' : 'chip--off'}`;
     $('span:last-child', expansion).textContent = app.settings.expansionEnabled ? 'Expanding' : 'Paused';
@@ -451,6 +457,7 @@ function renderList() {
                     <span class="primary">${primary}</span>
                     <span class="secondary">${escapeHtml(s.description || s.folder || 'No folder')}${s.abbreviations.length > 1 ? ` · +${s.abbreviations.length - 1}` : ''}</span>
                 </span>
+                ${state.editMode ? `<span class="row-open${s.id === state.selectedId ? ' is-open' : ''}" title="Open this snippet">${icon('eye')}</span>` : ''}
             </button>`;
     }
 
@@ -463,7 +470,6 @@ function renderListFooter() {
     if (!state.editMode) {
         footer.innerHTML = `<span>${plural(state.visible.length, 'snippet')}</span>
             <span class="footer-actions">
-                <button class="btn btn--ghost btn--small" data-action="edit-mode" ${state.snippets.length ? '' : 'disabled'}>Select</button>
                 <button class="btn btn--primary btn--small" id="new-snippet">${icon('plus')}New snippet</button>
             </span>`;
         return;
@@ -475,6 +481,7 @@ function renderListFooter() {
         <span class="footer-actions">
             ${state.folder === DUPLICATES ? '<button class="btn btn--ghost btn--small" data-action="select-extra">Select extra copies</button>' : ''}
             <button class="btn btn--ghost btn--small" data-action="select-all">${allVisible ? 'Select none' : 'Select all'}</button>
+            <button class="btn btn--small" data-action="move-checked" ${count ? '' : 'disabled'}>${icon('folder')}Move…</button>
             <button class="btn btn--small btn--danger-solid" data-action="delete-checked" ${count ? '' : 'disabled'}>${icon('trash')}Delete${count ? ` (${number.format(count)})` : ''}</button>
             <button class="btn btn--small" data-action="edit-done">Done</button>
         </span>`;
@@ -482,14 +489,57 @@ function renderListFooter() {
 
 function setEditMode(on) {
     state.editMode = on;
+    $('#edit-toggle').setAttribute('aria-pressed', String(on));
     state.checked.clear();
+    state.anchorId = null;
     renderList();
 }
 
-function toggleChecked(id) {
+function toggleChecked(id, keepOpen = false) {
+    if (!state.editMode) {
+        state.editMode = true;
+        $('#edit-toggle').setAttribute('aria-pressed', 'true');
+        state.checked.clear();
+        // The open snippet joins the selection, like Outlook keeps the current message.
+        if (keepOpen && state.selectedId && state.selectedId !== id) state.checked.add(state.selectedId);
+    }
     if (state.checked.has(id)) state.checked.delete(id);
     else state.checked.add(id);
+    state.anchorId = id;
     renderList();
+}
+
+function selectRange(id) {
+    const anchor = state.anchorId ?? state.selectedId;
+    const from = state.visible.findIndex((s) => s.id === anchor);
+    const to = state.visible.findIndex((s) => s.id === id);
+    if (!state.editMode) {
+        state.editMode = true;
+        $('#edit-toggle').setAttribute('aria-pressed', 'true');
+        state.checked.clear();
+    }
+    if (from < 0 || to < 0) return toggleChecked(id);
+    const [start, end] = from < to ? [from, to] : [to, from];
+    state.visible.slice(start, end + 1).forEach((s) => state.checked.add(s.id));
+    renderList();
+}
+
+async function moveChecked() {
+    const ids = [...state.checked];
+    if (!ids.length) return;
+    const folders = [...new Set(state.snippets.map((s) => s.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const result = await dialog({
+        title: `Move ${plural(ids.length, 'snippet')}`,
+        body: 'Pick a folder or type a new name. Leave it empty for no folder.',
+        fields: [{ label: 'Folder', suggestions: folders, required: false, placeholder: 'Folder name' }],
+        confirm: 'Move',
+    });
+    if (!result) return;
+    const folder = result.fields[0].trim().replace(/^\/+|\/+$/g, '');
+    const moved = await run(() => call('moveSnippets', { ids, folder }));
+    if (moved === undefined) return;
+    toast(moved ? `Moved ${plural(moved, 'snippet')} to ${folder || 'No folder'}` : 'They were already there');
+    setEditMode(false);
 }
 
 async function deleteChecked() {
@@ -550,12 +600,18 @@ async function newSnippet() {
     if (!(await confirmLeave())) return;
     const s = settings();
     state.selectedId = null;
-    state.draft = { id: null, abbreviations: [], expansion: '', description: '', folder: state.folder === DUPLICATES ? '' : state.folder ?? '', trigger: s.defaultTrigger, wordStart: s.defaultWordStart, case: s.defaultCase, protected: false };
+    state.draft = { id: null, abbreviations: [], expansion: '', description: '', folder: state.folder === DUPLICATES ? '' : state.folder ?? '', trigger: s.defaultTrigger, wordStart: s.defaultWordStart, case: s.defaultCase, lineBreaks: 'default', protected: false };
     state.original = JSON.stringify(state.draft);
     showView('snippets');
     renderEditor();
     $('#editor .tags input')?.focus();
 }
+
+// Per snippet; "default" follows Settings > Typing > Line breaks.
+const LINE_BREAK_OPTIONS = [['default', 'Like in Settings'], ['paste', 'Paste the text'], ['shiftEnter', 'Type Shift+Enter'], ['enter', 'Type Enter']];
+
+// "Like in Settings (Paste the text)": names what the setting currently is.
+const defaultLineBreakLabel = () => `Like in Settings (${LINE_BREAK_OPTIONS.find(([v]) => v === settings().lineBreaks)?.[1] ?? 'Paste the text'})`;
 
 function segmented(name, key, value, options) {
     return `<div class="segmented" role="radiogroup" aria-label="${name}" data-segment="${key}">${options.map(([v, label]) =>
@@ -566,6 +622,7 @@ function renderEditor() {
     const d = state.draft;
     const editor = $('#editor');
     if (!d) {
+        renderSaveBar();
         editor.innerHTML = `<div class="empty">${icon('keyboard')}<strong>Pick a snippet</strong><span>Or create a new one with <kbd>Ctrl N</kbd>.</span></div>`;
         return;
     }
@@ -575,10 +632,9 @@ function renderEditor() {
     editor.innerHTML = `
         <div class="editor-card">
             <div class="editor-head">
-                <div><div class="eyebrow">${escapeHtml(d.folder || 'No folder')}</div><h1 class="editor-title">${escapeHtml(d.abbreviations[0] ?? 'New snippet')}<span class="dirty-dot" title="Unsaved changes" hidden></span></h1></div>
+                <div><div class="eyebrow">${escapeHtml(d.folder || 'No folder')}</div><h1 class="editor-title">${escapeHtml(d.abbreviations[0] ?? 'New snippet')}</h1></div>
                 <div class="editor-actions">
                     ${d.id ? `<button class="btn btn--ghost" data-action="duplicate">${icon('copy')}Duplicate</button><button class="btn btn--ghost btn--danger" data-action="delete">${icon('trash')}Delete</button>` : ''}
-                    <button class="btn btn--primary" data-action="save" title="Ctrl S">Save</button>
                 </div>
             </div>
             <div class="fields">
@@ -586,11 +642,11 @@ function renderEditor() {
                     <div class="tags">${d.abbreviations.map((a, i) => `<span class="tag">${escapeHtml(a)}<button type="button" data-remove-tag="${i}" aria-label="Remove ${escapeHtml(a)}">${icon('x')}</button></span>`).join('')}<input data-field="tag" placeholder="${d.abbreviations.length ? 'Add…' : 'Type an abbreviation, press Enter'}" aria-label="Add abbreviation" spellcheck="false"></div>
                 </label>
                 <label class="field"><span>Description</span><input class="input" data-field="description" value="${escapeHtml(d.description)}" placeholder="What is this for?"></label>
-                <label class="field field--wide"><span>Expansion</span>
+                <div class="field field--wide"><div class="field-head"><span>Expansion</span>${locked ? '' : `<button type="button" class="btn btn--ghost btn--small" data-action="insert-macro" aria-haspopup="menu" aria-expanded="false">${icon('plus')}Insert</button>`}</div>
                     ${locked
                         ? `<div class="empty">${icon('lock')}<strong>Protected snippet</strong><span>Unlock with your master password to view or edit it.</span><button type="button" class="btn btn--primary btn--small" data-action="unlock">Unlock</button></div>`
                         : `<textarea class="textarea" data-field="expansion" spellcheck="false" placeholder="The text Freevy types for you">${escapeHtml(d.expansion ?? '')}</textarea>`}
-                </label>
+                </div>
                 <div class="field"><span id="folder-label">Folder</span>
                     <div class="combo">
                         <input class="input" data-field="folder" data-combo="folder" role="combobox" aria-labelledby="folder-label" aria-expanded="false" aria-autocomplete="list" aria-controls="folder-options" autocomplete="off" spellcheck="false" value="${escapeHtml(d.folder)}" placeholder="No folder">
@@ -603,19 +659,160 @@ function renderEditor() {
                 <div class="option-card"><span class="label">Expand</span>${segmented('Expand', 'trigger', d.trigger, [['after', 'After space'], ['instant', 'Instantly']])}
                     <label class="check"><input type="checkbox" data-field="wordStart" ${d.wordStart ? 'checked' : ''}><span>Only at the start of a word</span></label></div>
                 <div class="option-card"><span class="label">Case</span>${segmented('Case', 'case', d.case, [['exact', 'Exact'], ['ignore', 'Ignore'], ['adapt', 'Adapt']])}</div>
+                <div class="option-card"><span class="label">Line breaks</span>
+                    <select class="input" data-field="lineBreaks" aria-label="Line breaks">${LINE_BREAK_OPTIONS.map(([v, label]) => `<option value="${v}" ${v === (d.lineBreaks ?? 'default') ? 'selected' : ''}>${v === 'default' ? defaultLineBreakLabel() : label}</option>`).join('')}</select></div>
                 <div class="option-card option-card--row"><div><div class="label">Protected</div><div class="hint">Needs master password</div></div><button type="button" class="switch" role="switch" data-field="protected" aria-checked="${d.protected}" aria-label="Protected"></button></div>
             </div>
-            <div class="preview"><div class="label">Preview</div><p id="preview-line"></p></div>
+            <div class="preview"><div class="label">Preview</div><p id="preview-line"></p><div class="macro-preview" id="macro-preview" hidden></div></div>
         </div>`;
     updateEditorChrome();
+}
+
+// Shown only while the draft differs from what is saved; lives outside #editor so re-rendering
+// the editor never replays its entrance.
+function renderSaveBar() {
+    const dirty = isDirty();
+    $('#save-bar').hidden = !dirty;
+    $('#editor-pane').classList.toggle('is-dirty', dirty);
+}
+
+async function discardChanges() {
+    const saved = state.snippets.find((s) => s.id === state.draft?.id);
+    if (saved && state.original) {
+        state.draft = JSON.parse(state.original);
+    } else {
+        // A new or duplicated snippet: go back to the snippet that was open before, if any.
+        state.draft = null;
+        state.original = null;
+        const previous = state.snippets.find((s) => s.id === state.selectedId);
+        if (previous) {
+            state.selectedId = null;
+            return select(previous.id);
+        }
+    }
+
+    renderList();
+    renderEditor();
 }
 
 function updateEditorChrome() {
     const d = state.draft;
     if (!d) return;
-    $('#editor .dirty-dot')?.toggleAttribute('hidden', !isDirty());
+    renderSaveBar();
     const caseNote = d.case === 'adapt' ? ' Type it in capitals to get capitals.' : '';
     $('#preview-line').innerHTML = `You type <kbd>${escapeHtml(d.abbreviations[0] ?? '…')}${d.trigger === 'after' ? '␣' : ''}</kbd> and Freevy types the expansion.${caseNote}`;
+    scheduleMacroPreview();
+}
+
+// ---- Macros: preview and Insert menu ------------------------------------------------------
+
+let macroPreviewTimer;
+function scheduleMacroPreview() {
+    clearTimeout(macroPreviewTimer);
+    macroPreviewTimer = setTimeout(renderMacroPreview, 120);
+}
+
+async function renderMacroPreview() {
+    const box = $('#macro-preview');
+    const text = state.draft?.expansion ?? '';
+    if (!box) return;
+    if (!text.includes('%(')) {
+        box.hidden = true;
+        return;
+    }
+    const preview = await call('previewExpansion', { text }).catch(() => null);
+    if (!preview?.hasMacros || state.draft?.expansion !== text) {
+        box.hidden = !preview?.hasMacros;
+        return;
+    }
+    const body = preview.parts.map((p) => p.kind === 'text'
+        ? escapeHtml(p.value).replace(/\n/g, '<span class="macro-chip">⏎</span><br>')
+        : `<span class="macro-chip">${escapeHtml(p.value)}</span>`).join('');
+    const notes = [];
+    if (preview.inputs.length) notes.push(`Asks for ${preview.inputs.map((i) => `“${escapeHtml(i)}”`).join(', ')} first.`);
+    if (preview.cursorBack) notes.push(`Then moves the cursor back ${plural(preview.cursorBack, 'character')}.`);
+    box.innerHTML = `<div class="macro-output">${body || '<span class="hint">(nothing typed)</span>'}</div>${notes.length ? `<p class="hint">${notes.join(' ')}</p>` : ''}`;
+    box.hidden = false;
+}
+
+function insertIntoExpansion(snippet) {
+    const area = $('#editor [data-field="expansion"]');
+    if (!area) return;
+    const start = area.selectionStart ?? area.value.length;
+    const end = area.selectionEnd ?? start;
+    area.setRangeText(snippet, start, end, 'end');
+    area.focus();
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+const DATE_PRESETS = [
+    ['%(Day).%(Month).%(Year)', 'Date, day first with dots'],
+    ['%(Day)/%(Month)/%(Year)', 'Date, day first'],
+    ['%(Month)/%(Day)/%(Year)', 'Date, month first (US)'],
+    ['%(Year)-%(Month)-%(Day)', 'Date, ISO (2026-03-05)'],
+    ['%(WeekdayName), %(MonthName) %(#Day), %(Year)', 'Long date'],
+    ['%(#Day) %(MonthName) %(Year)', 'Day, month name, year'],
+    ['%(Hour24):%(Minute)', 'Time, 24-hour'],
+    ['%(#Hour):%(Minute) %(AMorPM)', 'Time, 12-hour'],
+    ['%(WeekdayName)', 'Weekday name'],
+    ['%(MonthName)', 'Month name'],
+    ['%(Year)', 'Year'],
+    ['%(#WeekOfYear)', 'Week number'],
+];
+
+async function insertMacro(trigger) {
+    const ask = async (title, fields, body = '') => (await dialog({ title, body, fields, confirm: 'Insert' }))?.fields;
+    menu(trigger, [
+        { label: 'Line break without sending (Shift+Enter)', icon: 'keyboard', action: () => insertIntoExpansion('%(Key Shift+Enter)') },
+        { label: 'Cursor position', icon: 'pencil', action: () => insertIntoExpansion('%(cursor)') },
+        { label: 'Clipboard text', icon: 'copy', action: () => insertIntoExpansion('%(clipboard)') },
+        'separator',
+        { label: 'Fill-in field…', icon: 'plus', action: async () => {
+            const v = await ask('Fill-in field', [{ label: 'Name (fields with the same name are asked once)', value: '', required: false, placeholder: 'e.g. name' }], 'Freevy asks for this text in a small window before typing the snippet.');
+            if (v) insertIntoExpansion(v[0].trim() ? `%(Input ${v[0].trim()})` : '%(Input)');
+        } },
+        { label: 'Date or time…', icon: 'history', action: async () => {
+            const v = await ask('Date or time', [{ label: 'Format', value: DATE_PRESETS[0][0], options: DATE_PRESETS.map(([value, label]) => ({ value, label: `${label}: ${value}` })) }]);
+            if (v) insertIntoExpansion(v[0]);
+        } },
+        { label: 'Shift the date…', icon: 'refresh', action: async () => {
+            const v = await ask('Shift the date', [
+                { label: 'Direction', value: 'Add', options: [{ value: 'Add', label: 'Later (add)' }, { value: 'Subtract', label: 'Earlier (subtract)' }] },
+                { label: 'Amount', value: '1', type: 'number' },
+                { label: 'Unit', value: 'Days', options: ['Days', 'Months', 'Years', 'Hours', 'Minutes', 'Seconds'].map((u) => ({ value: u, label: u.toLowerCase() })) },
+            ], 'Applies to the date and time macros after it, for example a due date in 14 days.');
+            if (v) insertIntoExpansion(`%(${v[0]}${v[2]} ${Math.max(0, parseInt(v[1], 10) || 0)})`);
+        } },
+        'separator',
+        { label: 'Key press…', icon: 'keyboard', action: async () => {
+            const keys = ['Enter', 'Tab', 'Escape', 'Backspace', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right', 'Space', 'Insert', ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`), ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+            const result = await dialog({
+                title: 'Key press', confirm: 'Insert',
+                fields: [{ label: 'Key', value: 'Enter', options: keys.map((k) => ({ value: k, label: k })) }],
+                checks: [{ label: 'Ctrl' }, { label: 'Shift' }, { label: 'Alt' }, { label: 'Windows key' }],
+            });
+            if (!result) return;
+            const mods = ['Ctrl', 'Shift', 'Alt', 'Win'].filter((_, i) => result.checks[i]);
+            insertIntoExpansion(`%(Key ${[...mods, result.fields[0]].join('+')})`);
+        } },
+        { label: 'Bold, italic or underline…', icon: 'pencil', action: async () => {
+            const v = await ask('Formatting', [{ label: 'Toggle', value: '%(B)', options: [{ value: '%(B)', label: 'Bold (Ctrl+B)' }, { value: '%(I)', label: 'Italic (Ctrl+I)' }, { value: '%(U)', label: 'Underline (Ctrl+U)' }] }], 'Switches the formatting on; insert it again where it should end.');
+            if (v) insertIntoExpansion(v[0]);
+        } },
+        { label: 'Wait…', icon: 'history', action: async () => {
+            const v = await ask('Wait', [{ label: 'Milliseconds', value: '500', type: 'number' }], 'Pauses typing, for apps that need a moment, for example after opening a menu.');
+            if (v) insertIntoExpansion(`%(Delay ${Math.min(60000, Math.max(0, parseInt(v[0], 10) || 0))}ms)`);
+        } },
+        'separator',
+        { label: 'Another snippet…', icon: 'copy', action: async () => {
+            const v = await ask('Another snippet', [{ label: 'Its abbreviation', value: '', placeholder: 'e.g. ;sig' }], 'Types that snippet’s text here. Protected snippets are left out.');
+            if (v) insertIntoExpansion(`%(Abbrev ${v[0].trim()})`);
+        } },
+        { label: 'Open a program, file or website…', icon: 'external', action: async () => {
+            const v = await ask('Open', [{ label: 'Program, file, folder or web address', value: '', placeholder: 'C:\\Tools\\app.exe or https://…' }, { label: 'Arguments (optional)', value: '', required: false }]);
+            if (v) insertIntoExpansion(`%(Launch "${v[0].trim()}"${v[1].trim() ? ` ${v[1].trim()}` : ''})`);
+        } },
+    ]);
 }
 
 function addTag(input) {
@@ -878,6 +1075,28 @@ function renderSecurity() {
     </div>`;
 }
 
+// Current version, what the last check found, and the one action that fits.
+function updateRow() {
+    const u = state.app.update ?? {};
+    const version = escapeHtml(state.app.version ?? '');
+    if (!u.installed) {
+        return row(`Version ${version}`, 'Running from a build folder; updates only work in the installed app.', '');
+    }
+
+    const checked = u.lastChecked ? `Last checked ${timeAgo(u.lastChecked)}.` : 'Not checked yet.';
+    if (u.ready) {
+        return row(`Freevy ${escapeHtml(u.ready)} is ready`, `You have ${version}. It installs the next time Freevy starts, or now with a quick restart.`,
+            `<button class="btn btn--small btn--primary" data-action="restart-to-update">${icon('download')}Restart and update</button>`);
+    }
+    if (u.available) {
+        return row(`Freevy ${escapeHtml(u.available)} is available`, `You have ${version}. ${checked}`,
+            `<button class="btn btn--small btn--primary" data-action="install-update" ${u.checking ? 'disabled' : ''}>${icon('download')}Download and install</button>`);
+    }
+
+    return row(`Version ${version}`, u.checking ? 'Checking for updates…' : u.error ? escapeHtml(u.error) : `${checked}${u.lastChecked ? ' You have the latest version.' : ''}`,
+        `<button class="btn btn--small" data-action="check-updates" ${u.checking ? 'disabled' : ''}>Check now</button>`);
+}
+
 function renderSettings() {
     const s = settings();
     const themeCard = ([id, name]) => `
@@ -896,12 +1115,15 @@ function renderSettings() {
             <div class="group-title">General</div>
             ${row('Expand abbreviations', 'Pause Freevy without closing it. Also on the chip in the title bar.', toggle('expansionEnabled', s.expansionEnabled, 'Expand abbreviations'))}
             ${row('Start with Windows', 'Freevy starts in the tray when you sign in to Windows.', toggle('autostart', s.autostart, 'Start with Windows'))}
-            ${row('Update automatically', 'A few times a day Freevy asks freevy.app for a new version and installs it in the background. The request carries your Freevy version and nothing else about you.', toggle('autoUpdate', s.autoUpdate, 'Update automatically'))}
+            ${row('Updates', 'A few times a day Freevy asks freevy.app for a new version. The request carries your Freevy version and nothing else about you.', segmented('Updates', 'updateMode', s.updateMode, [['install', 'Install automatically'], ['notify', 'Only tell me'], ['off', 'Off']]))}
+            ${s.updateMode === 'off' ? '' : row('Check every', '', segmented('Check every', 'updateCheckHours', String(s.updateCheckHours), [['1', 'Hour'], ['6', '6 hours'], ['24', 'Day'], ['168', 'Week']]))}
+            ${updateRow()}
         </div>
 
         <div class="group">
             <div class="group-title">Typing</div>
             ${row('Delimiters', 'Characters that end a word. \\t is Tab, \\n is Enter.', `<input class="input input--medium input--mono" data-setting="delimiters" value="${escapeHtml(s.delimiters)}" spellcheck="false"><button class="btn btn--small btn--ghost" data-action="reset-delimiters">Reset</button>`)}
+            ${row('Line breaks', 'Typing Enter sends the message in Slack, Discord or Teams. Pasting puts multi-line snippets in as one piece.', segmented('Line breaks', 'lineBreaks', s.lineBreaks, [['paste', 'Paste the text'], ['shiftEnter', 'Type Shift+Enter'], ['enter', 'Type Enter']]))}
             ${row('Paste long expansions', 'Expansions longer than this are pasted instead of typed.', `${numberInput('clipboardThreshold', s.clipboardThreshold, 1, 1000000)}<span class="inline-note">characters</span>`)}
             ${row('New snippets expand', '', segmented('Default expand', 'defaultTrigger', s.defaultTrigger, [['after', 'After space'], ['instant', 'Instantly']]))}
             ${row('New snippets only at word start', '', toggle('defaultWordStart', s.defaultWordStart, 'Only at word start'))}
@@ -925,9 +1147,7 @@ function renderSettings() {
             ${row('Export snippets', 'A JSON file with all snippets; protected ones stay encrypted.', `<button class="btn btn--small" data-action="export">${icon('upload')}Export…</button>`)}
             ${row('Data folder', escapeHtml(state.app.dataDirectory), `<button class="btn btn--small" data-action="open-data">${icon('folder')}Open</button>`)}
         </div>
-        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}.
-            ${state.app.update?.ready ? `<button class="link" type="button" data-action="restart-to-update">Restart to update to ${escapeHtml(state.app.update.ready)}</button>`
-                : state.app.update?.installed ? '<button class="link" type="button" data-action="check-updates">Check for updates</button>' : ''}</p>
+        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}.</p>
     </div>`;
 }
 
@@ -949,7 +1169,12 @@ function showView(name) {
         view.classList.toggle('is-entering', active);
     });
     renderPage();
-    if (name === 'snippets') renderList();
+    if (name === 'snippets') {
+        renderList();
+        // The setting may have changed meanwhile; relabel without redrawing the editor and its unsaved edits.
+        const option = $('#editor [data-field="lineBreaks"] option[value="default"]');
+        if (option) option.textContent = defaultLineBreakLabel();
+    }
 }
 
 // ---- Settings changes -------------------------------------------------------------
@@ -991,7 +1216,14 @@ document.addEventListener('click', async (event) => {
         return renderList();
     }
     if (target.dataset.folderMenu !== undefined) return folderMenu(target, target.dataset.folderMenu);
-    if (target.matches('.snippet-row')) return state.editMode ? toggleChecked(target.dataset.id) : select(target.dataset.id);
+    if (target.matches('.snippet-row')) {
+        const id = target.dataset.id;
+        // In edit mode the whole row selects; the eye opens the snippet. Ctrl+click and Shift+click work in both modes.
+        if (state.editMode && event.target.closest('.row-open')) return select(id);
+        if (event.shiftKey && (state.editMode || state.selectedId)) return selectRange(id);
+        if (state.editMode || event.ctrlKey || event.metaKey) return toggleChecked(id, event.ctrlKey || event.metaKey);
+        return select(id);
+    }
     if (target.id === 'new-snippet') return newSnippet();
     if (target.dataset.themeChoice) {
         applyTheme(target.dataset.themeChoice, true);
@@ -1055,6 +1287,7 @@ document.addEventListener('click', async (event) => {
 
     switch (action) {
         case 'save': return save();
+        case 'discard': return discardChanges();
         case 'load-history':
             state.history = 'loading';
             renderBackups();
@@ -1119,7 +1352,15 @@ document.addEventListener('click', async (event) => {
         case 'check-updates': {
             target.disabled = true;
             state.app = (await run(() => call('checkForUpdates'))) ?? state.app;
-            if (!state.app.update?.ready) toast('Freevy is up to date');
+            const u = state.app.update ?? {};
+            if (!u.ready && !u.available && !u.error) toast('Freevy is up to date');
+            renderPage();
+            return;
+        }
+        case 'install-update': {
+            target.disabled = true;
+            target.textContent = 'Downloading…';
+            state.app = (await run(() => call('installUpdate'))) ?? state.app;
             renderPage();
             return;
         }
@@ -1138,6 +1379,8 @@ document.addEventListener('click', async (event) => {
             return toast(`${plural(extra.length, 'exact copy', 'exact copies')} selected; one of each is kept`);
         }
         case 'delete-checked': return deleteChecked();
+        case 'move-checked': return moveChecked();
+        case 'insert-macro': return insertMacro(target);
         case 'open-register': return call('openAccountPage', { path: 'register' });
         case 'open-account': return call('openAccountPage', { path: 'account' });
         case 'sync-now': return call('syncNow');
@@ -1238,7 +1481,7 @@ document.addEventListener('input', (event) => {
     }
 
     const field = input.dataset.field;
-    if (field && state.draft && ['description', 'expansion', 'folder'].includes(field)) {
+    if (field && state.draft && ['description', 'expansion', 'folder', 'lineBreaks'].includes(field)) {
         state.draft[field] = input.value;
         updateEditorChrome();
         if (field === 'folder') $('#editor .eyebrow').textContent = input.value || 'No folder';
@@ -1364,6 +1607,9 @@ $('#titlebar').addEventListener('dblclick', (event) => {
     if (!event.target.closest('button')) call('window', { action: 'maximize' });
 });
 $('#chip-expansion').addEventListener('click', () => saveSetting('expansionEnabled', !settings().expansionEnabled));
+$('#edit-toggle').addEventListener('click', () => setEditMode(!state.editMode));
+$('#app-version').addEventListener('click', () => showView('settings'));
+$('#chip-github').addEventListener('click', () => call('openRepository'));
 $('#chip-sync').addEventListener('click', () => (state.app.sync.signedIn ? call('syncNow') : showView('account')));
 $('#chip-vault').addEventListener('click', async () => {
     if (state.app.vault.unlocked) await call('lock');
@@ -1408,6 +1654,38 @@ on('change', async (kind) => {
 
 on('notice', ({ message, error }) => toast(message, error));
 
+async function renderGitHubStars() {
+    const stars = await call('getGitHubStars').catch(() => null);
+    const badge = $('#github-stars');
+    badge.hidden = stars === null || stars === undefined;
+    if (!badge.hidden) {
+        $('span', badge).textContent = stars >= 1000 ? `${(stars / 1000).toFixed(1).replace(/\.0$/, '')}k` : number.format(stars);
+        $('#chip-github').title = `Star Freevy on GitHub (${plural(stars, 'star')})`;
+    }
+}
+
+// Asked once, the first time the window opens after Freevy saved 100 keystrokes.
+let starAsked = false;
+async function maybeAskForStar() {
+    if (starAsked || !state.app.starPrompt) return;
+    starAsked = true;
+    const star = await confirmDialog({
+        title: 'Enjoying Freevy?',
+        body: `Freevy already saved you ${plural(state.app.stats.totalKeystrokesSaved, 'keystroke')}. It is free and open source, built by a small community. A star on GitHub helps other people find it.`,
+        confirm: 'Star on GitHub',
+        cancel: 'No thanks',
+    });
+    await call('starPromptDone', { open: star });
+    state.app.starPrompt = false;
+}
+
+on('opened', async () => {
+    await refreshState();
+    renderChrome();
+    renderGitHubStars();
+    await maybeAskForStar();
+});
+
 // ---- Start ------------------------------------------------------------------------------
 
 await Promise.all([refreshState(), refreshSnippets()]);
@@ -1419,3 +1697,5 @@ if (state.visible.length > 0) {
 }
 
 setInterval(renderChrome, 30000);
+renderGitHubStars();
+await maybeAskForStar();

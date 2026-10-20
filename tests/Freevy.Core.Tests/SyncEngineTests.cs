@@ -239,4 +239,15 @@ public class SyncEngineTests
             Assert.Equal(snippet.Encrypted, back.Encrypted);
         }
     }
+
+    [Fact]
+    public void Line_break_choice_round_trips_and_stays_out_of_the_json_when_unset()
+    {
+        var unset = NewSnippet("sig", "Regards,\nOzan");
+        var shift = unset with { LineBreaks = LineBreakMode.ShiftEnter };
+
+        Assert.False(SyncItems.FromSnippet(unset).TryGetProperty("line_breaks", out _));
+        Assert.Null(SyncItems.ToSnippet(unset.Id, SyncItems.FromSnippet(unset))!.LineBreaks);
+        Assert.Equal(LineBreakMode.ShiftEnter, SyncItems.ToSnippet(shift.Id, SyncItems.FromSnippet(shift))!.LineBreaks);
+    }
 }

@@ -70,8 +70,8 @@ const store = {
     vault: { configured: true, unlocked: false, locksAt: null },
     signedIn: false,
     settings: {
-        expansionEnabled: true, delimiters: ',.?!()<>[]{}:;"/\\\\-\' \\t\\n', clipboardThreshold: 3500, defaultTrigger: 'after', defaultWordStart: true, defaultCase: 'adapt',
-        maskFoldersContaining: '', unlockMinutes: 5, lockWhenWindowsLocks: true, autoUpdate: true, theme: 'freevy', autostart: false,
+        expansionEnabled: true, delimiters: ',.?!()<>[]{}:;"/\\\\-\' \\t\\n', clipboardThreshold: 3500, lineBreaks: 'paste', defaultTrigger: 'after', defaultWordStart: true, defaultCase: 'adapt',
+        maskFoldersContaining: '', unlockMinutes: 5, lockWhenWindowsLocks: true, autoUpdate: true, updateMode: 'install', updateCheckHours: 6, theme: 'freevy', autostart: false,
         backup: {
             enabled: true, intervalHours: 24, onChange: true, keepCount: 10, localEnabled: true, localDirectory: 'C:\\Users\\you\\AppData\\Roaming\\Freevy\\backups',
             folderEnabled: false, folderDirectory: '', sftp: { enabled: false, host: '', port: 22, username: '', hasPassword: false, privateKeyPath: '', hasPassphrase: false, remoteDirectory: 'Freevy-backups', hostKeyFingerprint: '' },
@@ -85,7 +85,7 @@ store.secrets.set(store.snippets.at(-1).id, 'correct-horse-battery');
 
 function demoState() {
     return {
-        version: 'demo', dataDirectory: 'C:\\Users\\you\\AppData\\Roaming\\Freevy', breevyAvailable: true,
+        update: { installed: true, checking: false, ready: null, available: null, lastChecked: new Date().toISOString(), error: null }, version: 'demo', dataDirectory: 'C:\\Users\\you\\AppData\\Roaming\\Freevy', breevyAvailable: true,
         settings: structuredClone(store.settings), vault: { ...store.vault },
         sync: { signedIn: store.signedIn, running: false, lastSync: store.signedIn ? new Date().toISOString() : null, error: null },
         backup: { ...store.backup }, stats: structuredClone(store.stats), abbreviationCount: store.snippets.reduce((n, s) => n + s.abbreviations.length, 0),
@@ -124,6 +124,7 @@ async function demo(method, p) {
             changed('snippets');
             return structuredClone(snippet);
         }
+        case 'moveSnippets': { let moved = 0; store.snippets.forEach((s) => { if (p.ids.includes(s.id) && s.folder !== p.folder) { s.folder = p.folder; moved++; } }); changed('snippets'); return moved; }
         case 'deleteSnippets': store.snippets = store.snippets.filter((s) => !p.ids.includes(s.id)); changed('snippets'); return null;
         case 'revealSnippet': requireUnlocked(); return store.secrets.get(p.id) ?? '';
         case 'renameFolder': {
@@ -177,6 +178,11 @@ async function demo(method, p) {
         case 'importBreevy': return store.snippets.length;
         case 'openDataFolder': case 'openAccountPage': case 'window': case 'syncNow': case 'cancelBrowserSignIn': return null;
         case 'signInWithBrowser': return { fingerprint: '3895 7032' };
+        case 'starPromptDone': return null;
+        case 'openRepository': return null;
+        case 'installUpdate': await wait(800); return demoState();
+        case 'getGitHubStars': return 1234;
+        case 'previewExpansion': return { hasMacros: /%\(/.test(p.text), parts: p.text.split(/(%\([^)]*\))/).filter(Boolean).map((p) => (p.startsWith('%(') ? { kind: 'key', value: p.slice(2, -1) } : { kind: 'text', value: p })), cursorBack: 0, inputs: [] };
         case 'getHistory':
             await wait(500);
             return [

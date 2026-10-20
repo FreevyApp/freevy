@@ -18,6 +18,11 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
     // Decrypted versions from the last history request; restore picks from these by key.
     private Dictionary<string, Snippet> _history = [];
 
+    public const string RepositoryUrl = "https://github.com/FreevyApp/freevy";
+    private const int StarPromptKeystrokes = 100;
+
+    private static void OpenRepository() => Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true });
+
     public void Emit(string name, object? data = null) =>
         post(JsonSerializer.Serialize(new { @event = name, data }, Json));
 
@@ -71,7 +76,10 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                     Text(a, "folder"),
                     TriggerFrom(Text(a, "trigger"), Bool(a, "wordStart")),
                     CaseFrom(Text(a, "case")),
-                    Bool(a, "protected")));
+                    Bool(a, "protected"),
+                    a.TryGetProperty("lineBreaks", out var lb) ? LineBreaksFrom(lb.GetString()) : null));
+            case "moveSnippets":
+                return core.MoveSnippets(a.GetProperty("ids").EnumerateArray().Select(x => Guid.Parse(x.GetString()!)).ToHashSet(), Text(a, "folder"));
             case "deleteSnippets":
                 core.DeleteSnippets(a.GetProperty("ids").EnumerateArray().Select(x => Guid.Parse(x.GetString()!)).ToHashSet());
                 return null;
@@ -131,7 +139,19 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 return State();
             case "signOut": await core.Sync.SignOutAsync(); return State();
             case "restartToUpdate": core.Updates.RestartToUpdate(); return null;
+            case "starPromptDone":
+                core.SaveSettings(core.Settings with { StarPromptDone = true });
+                if (Bool(a, "open"))
+                {
+                    OpenRepository();
+                }
+
+                return null;
+            case "openRepository": OpenRepository(); return null;
+            case "getGitHubStars": return await GitHubStars.GetAsync();
+            case "previewExpansion": return core.PreviewExpansion(Text(a, "text"));
             case "checkForUpdates": await core.Updates.CheckAsync(); return State();
+            case "installUpdate": await core.Updates.InstallNowAsync(); return State();
             case "signInWithBrowser":
                 // Automated UI tests (--offscreen) open the page themselves instead of the default browser.
                 var browserSignIn = core.Sync.BeginBrowserSignIn(new Uri(Text(a, "server")), Text(a, "device"), openBrowser: !WebWindow.Offscreen);
@@ -159,7 +179,15 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         return new
         {
             version = typeof(Bridge).Assembly.GetName().Version?.ToString(3),
-            update = new { installed = core.Updates.IsInstalled, ready = core.Updates.ReadyVersion },
+            update = new
+            {
+                installed = core.Updates.IsInstalled,
+                checking = core.Updates.IsChecking,
+                ready = core.Updates.ReadyVersion,
+                available = core.Updates.AvailableVersion,
+                lastChecked = core.Updates.LastCheckedUtc?.ToLocalTime().ToString("O"),
+                error = core.Updates.LastError,
+            },
             dataDirectory = core.Store.Directory,
             breevyAvailable = core.BreevyAvailable,
             settings = new
@@ -167,6 +195,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 s.ExpansionEnabled,
                 delimiters = Settings.EscapeDelimiters(s.Delimiters),
                 s.ClipboardThreshold,
+                lineBreaks = LineBreaksName(s.LineBreaks),
                 defaultTrigger = s.DefaultTrigger.HasFlag(TriggerFlags.Immediate) ? "instant" : "after",
                 defaultWordStart = s.DefaultTrigger.HasFlag(TriggerFlags.WordStart),
                 defaultCase = CaseName(s.DefaultCase),
@@ -174,6 +203,8 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 s.UnlockMinutes,
                 s.LockWhenWindowsLocks,
                 s.AutoUpdate,
+                s.UpdateCheckHours,
+                updateMode = !s.AutoUpdate ? "off" : s.AutoInstallUpdates ? "install" : "notify",
                 s.Theme,
                 autostart = Autostart.IsEnabled,
                 backup = new
@@ -218,6 +249,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
             },
             stats = new { today = new { today.Expansions, today.KeystrokesSaved }, core.Stats.TotalExpansions, core.Stats.TotalKeystrokesSaved },
             abbreviationCount = core.AbbreviationCount,
+            starPrompt = !s.StarPromptDone && core.Stats.TotalKeystrokesSaved >= StarPromptKeystrokes,
         };
     }
 
@@ -231,6 +263,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         trigger = s.Trigger.HasFlag(TriggerFlags.Immediate) ? "instant" : "after",
         wordStart = s.Trigger.HasFlag(TriggerFlags.WordStart),
         @case = CaseName(s.Case),
+        lineBreaks = s.LineBreaks is { } lineBreaks ? LineBreaksName(lineBreaks) : "default",
         @protected = s.Protected,
         modified = s.Modified?.ToString("O"),
     };
@@ -254,11 +287,22 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
             s = s with { DefaultTrigger = TriggerFrom(trigger, wordStart) };
         }
 
+        if (a.TryGetProperty("lineBreaks", out v))
+        {
+            s = s with { LineBreaks = LineBreaksFrom(v.GetString()) ?? LineBreakMode.Paste };
+        }
+
         if (a.TryGetProperty("defaultCase", out v)) s = s with { DefaultCase = CaseFrom(v.GetString()) };
         if (a.TryGetProperty("maskFoldersContaining", out v)) s = s with { MaskFoldersContaining = (v.GetString() ?? "").Trim() };
         if (a.TryGetProperty("unlockMinutes", out v)) s = s with { UnlockMinutes = Math.Clamp(v.GetInt32(), 1, 1440) };
         if (a.TryGetProperty("lockWhenWindowsLocks", out v)) s = s with { LockWhenWindowsLocks = v.GetBoolean() };
         if (a.TryGetProperty("autoUpdate", out v)) s = s with { AutoUpdate = v.GetBoolean() };
+        if (a.TryGetProperty("updateCheckHours", out v)) s = s with { UpdateCheckHours = Math.Clamp(v.ValueKind == JsonValueKind.String ? int.Parse(v.GetString()!) : v.GetInt32(), 1, 24 * 30) };
+        if (a.TryGetProperty("updateMode", out v))
+        {
+            var mode = v.GetString();
+            s = s with { AutoUpdate = mode != "off", AutoInstallUpdates = mode != "notify" };
+        }
         if (a.TryGetProperty("syncIntervalMinutes", out v)) s = s with { Sync = s.Sync with { IntervalMinutes = Math.Clamp(v.GetInt32(), 1, 1440) } };
 
         if (a.TryGetProperty("backup", out var b))
@@ -371,6 +415,22 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
 
     private static TriggerFlags TriggerFrom(string? trigger, bool wordStart) =>
         (trigger == "instant" ? TriggerFlags.Immediate : TriggerFlags.AfterDelimiter) | (wordStart ? TriggerFlags.WordStart : TriggerFlags.None);
+
+    private static string LineBreaksName(LineBreakMode mode) => mode switch
+    {
+        LineBreakMode.ShiftEnter => "shiftEnter",
+        LineBreakMode.Enter => "enter",
+        _ => "paste",
+    };
+
+    /// <summary>"default" (or anything unknown) means: follow the setting.</summary>
+    private static LineBreakMode? LineBreaksFrom(string? name) => name switch
+    {
+        "paste" => LineBreakMode.Paste,
+        "shiftEnter" => LineBreakMode.ShiftEnter,
+        "enter" => LineBreakMode.Enter,
+        _ => null,
+    };
 
     private static CaseMode CaseFrom(string? name) => name switch
     {

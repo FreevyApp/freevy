@@ -39,7 +39,9 @@ export function dialog({ title, body = '', fields = [], checks = [], confirm = '
                 ${body ? `<p>${body}</p>` : ''}
                 ${fields.map((f, i) => `
                     <label class="field"><span>${escapeHtml(f.label)}</span>
-                        <input class="input" name="f${i}" type="${f.type ?? 'text'}" value="${escapeHtml(f.value ?? '')}" ${f.placeholder ? `placeholder="${escapeHtml(f.placeholder)}"` : ''} ${f.required === false ? '' : 'required'} autocomplete="${f.autocomplete ?? 'off'}" spellcheck="false">
+                        ${f.options
+                            ? `<select class="input" name="f${i}">${f.options.map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === f.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select>`
+                            : `${f.suggestions ? `<datalist id="dl-f${i}">${f.suggestions.map((s) => `<option value="${escapeHtml(s)}"></option>`).join('')}</datalist>` : ''}<input class="input" name="f${i}" ${f.suggestions ? `list="dl-f${i}"` : ''} type="${f.type ?? 'text'}" value="${escapeHtml(f.value ?? '')}" ${f.placeholder ? `placeholder="${escapeHtml(f.placeholder)}"` : ''} ${f.required === false ? '' : 'required'} autocomplete="${f.autocomplete ?? 'off'}" spellcheck="false">`}
                     </label>`).join('')}
                 ${checks.map((c, i) => `<label class="check"><input type="checkbox" name="c${i}" ${c.checked ? 'checked' : ''}><span>${escapeHtml(c.label)}</span></label>`).join('')}
                 <div class="error" hidden></div>
