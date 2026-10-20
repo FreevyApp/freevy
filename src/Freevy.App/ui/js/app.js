@@ -646,7 +646,7 @@ function renderSettings() {
             ${row('Export snippets', 'A JSON file with all snippets; protected ones stay encrypted.', `<button class="btn btn--small" data-action="export">${icon('upload')}Export…</button>`)}
             ${row('Data folder', escapeHtml(state.app.dataDirectory), `<button class="btn btn--small" data-action="open-data">${icon('folder')}Open</button>`)}
         </div>
-        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}. Not affiliated with Breevy or aBreevy8.</p>
+        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}.</p>
     </div>`;
 }
 
