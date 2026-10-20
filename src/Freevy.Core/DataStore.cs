@@ -60,7 +60,13 @@ public sealed class DataStore(string directory)
         return snippets;
     }
 
-    public Settings LoadSettings() => Read<Settings>(SettingsPath) ?? new Settings();
+    public Settings LoadSettings() => MigrateSettings(Read<Settings>(SettingsPath) ?? new Settings());
+
+    /// <summary>Defaults saved under the app's old name (OzanExtender) become today's defaults.</summary>
+    private static Settings MigrateSettings(Settings settings) =>
+        settings.Backup.Sftp.RemoteDirectory == "OzanExtender-backups"
+            ? settings with { Backup = settings.Backup with { Sftp = settings.Backup.Sftp with { RemoteDirectory = new SftpSettings().RemoteDirectory } } }
+            : settings;
 
     public VaultHeader? LoadVault() => Read<VaultHeader>(VaultPath);
 

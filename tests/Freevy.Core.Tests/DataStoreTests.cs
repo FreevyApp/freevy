@@ -97,4 +97,26 @@ public sealed class DataStoreTests : IDisposable
             Directory.Delete(_directory, recursive: true);
         }
     }
+
+    [Fact]
+    public void Settings_saved_with_the_old_default_backup_folder_get_the_new_one()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "freevy-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "settings.json"), "{\"Backup\":{\"Sftp\":{\"RemoteDirectory\":\"OzanExtender-backups\",\"Host\":\"h\"}}}");
+            var store = new DataStore(dir);
+            var settings = store.LoadSettings();
+            Assert.Equal("Freevy-backups", settings.Backup.Sftp.RemoteDirectory);
+            Assert.Equal("h", settings.Backup.Sftp.Host);
+
+            File.WriteAllText(Path.Combine(dir, "settings.json"), "{\"Backup\":{\"Sftp\":{\"RemoteDirectory\":\"my/own\"}}}");
+            Assert.Equal("my/own", store.LoadSettings().Backup.Sftp.RemoteDirectory);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
 }
