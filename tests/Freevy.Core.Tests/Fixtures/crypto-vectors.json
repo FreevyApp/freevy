@@ -1,0 +1,26 @@
+{
+  "password": "correct horse battery staple ✓",
+  "kdf": {
+    "algorithm": "argon2id",
+    "salt": "AAECAwQFBgcICQoLDA0ODw==",
+    "memory": 1024,
+    "iterations": 2,
+    "parallelism": 1
+  },
+  "masterKey": "dIVMhiuHK66PQVDGspDWpbbapdY6MPoqB5QeVDf7fQA=",
+  "authHash": "SnL5B7+ljMoi/oMkdxTDcGqkQHCZQjSoSksytQLL594=",
+  "dataKey": "//79/Pv6+fj39vX08/Lx8O/u7ezr6uno5+bl5OPi4eA=",
+  "wrappedDataKey": "v1.Te9DL9VlMY9U7neCxUObwr2ustxQtvqmCXHhg6PM6c7gZ2bFCOtyTvbIpX4/EzcYOeSzRkup80kYPSDo",
+  "itemId": "6f9a2c1e-3b4d-4e5f-8a6b-7c8d9e0f1a2b",
+  "item": {
+    "type": "snippet",
+    "v": 1,
+    "abbreviations": [
+      "teh",
+      "hte"
+    ],
+    "expansion": "the ünïcode 🔑",
+    "folder": "Typos"
+  },
+  "sealedItem": "v1.Ik5dmdjuyCupEOd6/2toHtH9PF9y4gp6+27bBmt5SFunXGvjDNFoBfykFS0Yku+xfQCLd+XKFSjhUcOOmQKoWq5SHT6iI8x6oOJvMgFrITcwSHiTYhtvz+zvg/AivN7bjVwRX8HBmb1APSRQvs7olXLn1fIpq3vUIxk5s11yxLQykrSuAbX9unvTboK8CGpBa9yd/lldbQ1MoSmMVguOkEsALp957036k6AAdFUM26uGIQsxiLyQpnkIutM47wDNcSmLLabgEU95gR+bsrUh13wi/ASYR/e9ERQhLUvJqNRme7JfNrcIkoQE14Mei6aR9iuX831IWEg34iyt9lCsQ796MdsJkQnGgSGbncWjA4MPvDE23URInEU3/0M="
+}

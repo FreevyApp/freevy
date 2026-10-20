@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Freevy.App/Freevy.App.csproj" />
+    <Project Path="src/Freevy.Core/Freevy.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Freevy.Core.Tests/Freevy.Core.Tests.csproj" />
+  </Folder>
+</Solution>
