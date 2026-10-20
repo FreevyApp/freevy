@@ -130,6 +130,11 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 await core.Sync.SignInAsync(new Uri(Text(a, "server")), Text(a, "email"), Text(a, "password"), Text(a, "device"), CancellationToken.None);
                 return State();
             case "signOut": await core.Sync.SignOutAsync(); return State();
+            case "signInWithBrowser":
+                // Automated UI tests (--offscreen) open the page themselves instead of the default browser.
+                var browserSignIn = core.Sync.BeginBrowserSignIn(new Uri(Text(a, "server")), Text(a, "device"), openBrowser: !WebWindow.Offscreen);
+                return new { fingerprint = browserSignIn.Fingerprint, url = WebWindow.Offscreen ? browserSignIn.BrowserUrl.AbsoluteUri : null };
+            case "cancelBrowserSignIn": core.Sync.CancelBrowserSignIn(); return null;
             case "openAccountPage":
                 // Only the account's own server, and only these two pages.
                 var page = Text(a, "path") == "register" ? "register" : "account";

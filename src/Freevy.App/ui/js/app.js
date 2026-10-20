@@ -18,6 +18,7 @@ const colorFor = (name) => folderColors[[...name].reduce((sum, c) => sum + c.cha
 
 const state = {
     app: null,
+    browserSignIn: null, // { fingerprint } while the website finishes a browser sign-in
     snippets: [],
     visible: [],
     selectedId: null,
@@ -519,6 +520,23 @@ function renderAccount() {
     const app = state.app;
     const sync = settings().sync;
     const page = $('[data-view="account"]');
+    if (!app.sync.signedIn && state.browserSignIn) {
+        page.innerHTML = `<div class="page-narrow">
+            <h1 class="page-title">Sync &amp; account</h1>
+            <p class="page-lead">Finish signing in on the website that just opened in your browser.</p>
+            <div class="card signin">
+                <p class="inline-note">Check that the website shows this code before you enter your password:</p>
+                <p class="fingerprint">${escapeHtml(state.browserSignIn.fingerprint)}</p>
+                <p class="inline-note">Your browser hands the encryption key to this app only; the password stays in the browser. The link works for 10 minutes.</p>
+                <div class="actions">
+                    <button class="btn" type="button" data-action="browser-signin">${icon('external')}Open the page again</button>
+                    <button class="btn btn--ghost" type="button" data-action="cancel-browser-signin">Cancel</button>
+                </div>
+            </div>
+        </div>`;
+        return;
+    }
+
     if (!app.sync.signedIn) {
         const customServer = sync.serverUrl !== sync.defaultServer;
         page.innerHTML = `<div class="page-narrow">
@@ -532,6 +550,7 @@ function renderAccount() {
                 <div class="error" hidden></div>
                 <div class="actions">
                     <button class="btn btn--primary" type="submit">Sign in</button>
+                    <button class="btn" type="button" data-action="browser-signin">${icon('external')}Sign in with browser</button>
                     ${customServer ? '' : '<button class="btn btn--ghost" type="button" data-action="custom-server">Use another server</button>'}
                 </div>
                 <p class="inline-note u-mt-4">No account yet? <button class="link" type="button" data-action="open-register">Create one on freevy.app</button></p>
@@ -817,6 +836,23 @@ document.addEventListener('click', async (event) => {
             $('#server-field').hidden = false;
             target.remove();
             return;
+        case 'browser-signin': {
+            // Uses the computer name and server from the form when it is on screen.
+            const form = $('#signin-form');
+            const device = String(form?.elements.device.value || settings().sync.deviceName).trim();
+            const server = String(form?.elements.server.value || settings().sync.serverUrl).trim();
+            const started = await run(() => call('signInWithBrowser', { server, device }));
+            if (started) {
+                state.browserSignIn = started;
+                renderPage();
+            }
+            return;
+        }
+        case 'cancel-browser-signin':
+            await call('cancelBrowserSignIn');
+            state.browserSignIn = null;
+            renderPage();
+            return;
         case 'open-register': return call('openAccountPage', { path: 'register' });
         case 'open-account': return call('openAccountPage', { path: 'account' });
         case 'sync-now': return call('syncNow');
@@ -1041,6 +1077,7 @@ $('#chip-vault').addEventListener('click', async () => {
 
 on('change', async (kind) => {
     await refreshState();
+    if (state.app.sync.signedIn) state.browserSignIn = null;
     if (kind === 'snippets') {
         await refreshSnippets();
         if (state.draft?.id && !state.snippets.some((s) => s.id === state.draft.id)) {

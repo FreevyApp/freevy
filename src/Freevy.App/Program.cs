@@ -7,9 +7,17 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // Windows starts the app with a freevy:// link when the website hands a sign-in back.
+        var link = args.FirstOrDefault(UrlProtocol.IsLink);
         using var single = new Mutex(true, @"Local\Freevy", out var first);
         if (!first)
         {
+            // Pass the link to the running instance; its window comes up to show the result.
+            if (link is not null && LinkChannel.Send(link))
+            {
+                return;
+            }
+
             // Ask the running instance to bring its window up instead of starting a second copy.
             if (EventWaitHandle.TryOpenExisting(TrayContext.ShowWindowEventName, out var show))
             {
@@ -35,7 +43,12 @@ internal static class Program
             MigrateFromOzanExtender(directory);
         }
 
-        Application.Run(new TrayContext(new DataStore(directory), startHidden));
+        if (dataIndex < 0 && !WebWindow.Offscreen)
+        {
+            UrlProtocol.Register(Environment.ProcessPath ?? Application.ExecutablePath);
+        }
+
+        Application.Run(new TrayContext(new DataStore(directory), startHidden, link));
     }
 
     /// <summary>The app was called OzanExtender before; move its data folder and startup entry over once.</summary>

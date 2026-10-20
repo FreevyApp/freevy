@@ -548,3 +548,12 @@ kbd {
 .resize-edge--ne { top: 0; right: 0; cursor: nesw-resize; }
 .resize-edge--sw { bottom: 0; left: 0; cursor: nesw-resize; }
 .is-maximized .resize-edges { display: none; }
+
+/* ---- Browser sign-in --------------------------------------------------- */
+.card .fingerprint {
+  margin: var(--space-3) 0;
+  font: 600 var(--type-2xl) / 1.2 var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--color-accent);
+  text-align: center;
+}

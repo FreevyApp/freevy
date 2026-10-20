@@ -172,7 +172,8 @@ async function demo(method, p) {
         case 'chooseFile': return 'C:\\Users\\you\\Downloads\\example.zip';
         case 'exportSnippets': return 'C:\\Users\\you\\Documents\\Freevy-snippets.json';
         case 'importBreevy': return store.snippets.length;
-        case 'openDataFolder': case 'openAccountPage': case 'window': case 'syncNow': return null;
+        case 'openDataFolder': case 'openAccountPage': case 'window': case 'syncNow': case 'cancelBrowserSignIn': return null;
+        case 'signInWithBrowser': return { fingerprint: '3895 7032' };
         case 'getHistory':
             await wait(500);
             return [

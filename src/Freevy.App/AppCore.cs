@@ -437,6 +437,22 @@ internal sealed class AppCore : IDisposable
 
     public bool BreevyAvailable => BreevyImporter.IsAvailable(BreevyImporter.DefaultDirectory);
 
+    /// <summary>Takes a freevy:// link: today only the browser sign-in comes back this way.</summary>
+    public async Task HandleLinkAsync(string link)
+    {
+        try
+        {
+            var email = await Sync.CompleteBrowserSignInAsync(link);
+            Notice?.Invoke($"Signed in as {email}. Syncing your snippets…", false);
+        }
+        catch (Exception ex) when (ex is FreevyApiException or HttpRequestException or TaskCanceledException or System.Security.Cryptography.CryptographicException)
+        {
+            Notice?.Invoke(ex is FreevyApiException ? ex.Message : "The sign-in could not be finished. Choose \"Sign in with browser\" and try again.", true);
+        }
+
+        Changed?.Invoke(Change.Sync);
+    }
+
     public void OpenDataFolder() =>
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_store.Directory}\"") { UseShellExecute = true });
 

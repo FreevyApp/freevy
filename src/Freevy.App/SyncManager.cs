@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net;
 using Freevy.Core;
 using Freevy.Core.Security;
 using Freevy.Core.Sync;
@@ -20,6 +22,7 @@ internal sealed class SyncManager : IDisposable
     private long _localGeneration;
     private bool _running;
     private bool _again;
+    private BrowserSignIn? _browserSignIn;
 
     public SyncManager(DataStore store, Func<Settings> settings, Action<Settings> saveSettings, SynchronizationContext ui)
     {
@@ -92,6 +95,63 @@ internal sealed class SyncManager : IDisposable
             throw new FreevyApiException("Signed in, but the account key could not be opened. Reset your password on the website.", System.Net.HttpStatusCode.OK);
         }
 
+        StoreSession(server, email, deviceName, login.Token, dataKey);
+    }
+
+    /// <summary>
+    /// Starts a browser sign-in: opens the website with a one-time public key. The website sends
+    /// the result back through a freevy:// link, which <see cref="CompleteBrowserSignInAsync"/> takes.
+    /// </summary>
+    public BrowserSignIn BeginBrowserSignIn(Uri server, string deviceName, bool openBrowser = true)
+    {
+        _browserSignIn?.Dispose();
+        _browserSignIn = BrowserSignIn.Start(server, deviceName);
+        if (openBrowser)
+        {
+            Process.Start(new ProcessStartInfo(_browserSignIn.BrowserUrl.AbsoluteUri) { UseShellExecute = true });
+        }
+
+        return _browserSignIn;
+    }
+
+    public void CancelBrowserSignIn()
+    {
+        _browserSignIn?.Dispose();
+        _browserSignIn = null;
+    }
+
+    /// <summary>Finishes a browser sign-in from its freevy:// link and returns the account's email.</summary>
+    public async Task<string> CompleteBrowserSignInAsync(string link)
+    {
+        var parsed = BrowserSignIn.ParseLink(link)
+            ?? throw new FreevyApiException("That is not a Freevy sign-in link.", HttpStatusCode.BadRequest);
+        var pending = _browserSignIn;
+        if (pending is null || !string.Equals(pending.State, parsed.State, StringComparison.Ordinal))
+        {
+            throw new FreevyApiException("This sign-in was not started in Freevy on this computer. Choose \"Sign in with browser\" in Freevy and try again.", HttpStatusCode.BadRequest);
+        }
+
+        _browserSignIn = null;
+        using (pending)
+        {
+            if (pending.IsExpired(DateTime.UtcNow))
+            {
+                throw new FreevyApiException("The sign-in took too long. Choose \"Sign in with browser\" again.", HttpStatusCode.BadRequest);
+            }
+
+            using var client = new FreevyApiClient(pending.Server);
+            var result = await client.RedeemLinkAsync(pending, parsed.Code, CancellationToken.None);
+            StoreSession(pending.Server, result.Email, pending.DeviceName, result.Token, result.DataKey);
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(result.DataKey);
+            return result.Email;
+        }
+    }
+
+    public bool IsBrowserSignInPending => _browserSignIn is { } pending && !pending.IsExpired(DateTime.UtcNow);
+
+    /// <summary>Keeps the token and data key (DPAPI), starts from a clean sync state and syncs.</summary>
+    private void StoreSession(Uri server, string email, string deviceName, string token, byte[] dataKey)
+    {
         _store.DeleteSyncState();
         var settings = _settings();
         _saveSettings(settings with
@@ -101,7 +161,7 @@ internal sealed class SyncManager : IDisposable
                 ServerUrl = server.GetLeftPart(UriPartial.Authority),
                 Email = email.Trim().ToLowerInvariant(),
                 DeviceName = deviceName,
-                ProtectedToken = Secrets.Protect(login.Token),
+                ProtectedToken = Secrets.Protect(token),
                 ProtectedDataKey = Secrets.Protect(Convert.ToBase64String(dataKey)),
             },
         });
@@ -276,5 +336,6 @@ internal sealed class SyncManager : IDisposable
     {
         _interval.Dispose();
         _debounce.Dispose();
+        _browserSignIn?.Dispose();
     }
 }

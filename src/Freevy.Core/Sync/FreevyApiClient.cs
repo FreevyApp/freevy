@@ -50,6 +50,14 @@ public sealed class FreevyApiClient : ISyncTransport, IDisposable
         return new LoginResult(login.Token, login.Kdf, login.WrappedDataKey);
     }
 
+    /// <summary>Redeems the code from a freevy:// link and opens the data key the browser sealed for this app.</summary>
+    public async Task<BrowserSignInResult> RedeemLinkAsync(BrowserSignIn signIn, string code, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(HttpMethod.Post, "link/redeem", new { code, verifier = signIn.Verifier, deviceKey = signIn.DeviceKey }, cancellationToken);
+        var link = await Read<LinkResponse>(response, cancellationToken);
+        return new BrowserSignInResult(link.Email, link.Token, signIn.OpenDataKey(link.BrowserKey, link.SealedKey));
+    }
+
     public async Task LogoutAsync(CancellationToken cancellationToken) =>
         await SendAsync(HttpMethod.Post, "logout", null, cancellationToken);
 
@@ -167,6 +175,8 @@ public sealed class FreevyApiClient : ISyncTransport, IDisposable
     private sealed record PreloginResponse(KdfParameters Kdf);
 
     private sealed record LoginResponse(string Token, KdfParameters Kdf, string WrappedDataKey);
+
+    private sealed record LinkResponse(string Token, string Email, string BrowserKey, string SealedKey);
 
     private sealed record ErrorResponse(string? Message);
 

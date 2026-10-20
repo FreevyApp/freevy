@@ -15,10 +15,11 @@ internal sealed class TrayContext : ApplicationContext
     private readonly EventWaitHandle _showWindowEvent = new(false, EventResetMode.AutoReset, ShowWindowEventName);
     private readonly RegisteredWaitHandle _showWindowWait;
     private readonly SynchronizationContext _ui;
+    private readonly LinkChannel _links;
     private WebWindow? _window;
     private Task<bool>? _openPrompt;
 
-    public TrayContext(DataStore store, bool startHidden)
+    public TrayContext(DataStore store, bool startHidden, string? link = null)
     {
         _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
         _core = new AppCore(store, _ui) { RequestUnlock = AskForMasterPassword };
@@ -73,6 +74,9 @@ internal sealed class TrayContext : ApplicationContext
         };
         UpdateTrayText();
 
+        // freevy:// links (browser sign-in) arrive from the process Windows starts for them.
+        _links = new LinkChannel(_ui, OpenLink);
+
         _showWindowWait = ThreadPool.RegisterWaitForSingleObject(
             _showWindowEvent, (_, _) => _ui.Post(_ => ShowWindow(), null), null, Timeout.Infinite, executeOnlyOnce: false);
 
@@ -80,6 +84,17 @@ internal sealed class TrayContext : ApplicationContext
         {
             ShowWindow();
         }
+
+        if (link is not null)
+        {
+            _ui.Post(_ => OpenLink(link), null);
+        }
+    }
+
+    private void OpenLink(string link)
+    {
+        ShowWindow();
+        _ = _core.HandleLinkAsync(link);
     }
 
     private void ShowWindow()
@@ -123,6 +138,7 @@ internal sealed class TrayContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        _links.Dispose();
         _showWindowWait.Unregister(null);
         _showWindowEvent.Dispose();
         _window?.Dispose();

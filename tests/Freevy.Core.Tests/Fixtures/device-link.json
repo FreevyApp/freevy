@@ -1,0 +1,11 @@
+{
+  "note": "Test vector for the browser sign-in (docs/crypto.md). Random keys, test data only.",
+  "device_private_pkcs8": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQghrE5k+KOLVsvsWbcM0xy0L5PaYCfbF/LQbzSK5vmWI+hRANCAATmFvmgtMhkSzTHVWywOpR+cWw+8zKeGhakLgiUL06Uv4FsG27tOvtfg/BB09sM3l7iIHTFDvaNgolgHoMf3lvM",
+  "device_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5hb5oLTIZEs0x1VssDqUfnFsPvMynhoWpC4IlC9OlL-BbBtu7Tr7X4PwQdPbDN5e4iB0xQ72jYKJYB6DH95bzA",
+  "verifier": "XkyHr3I6KHsJbBmJ7AUXJjpEnyAEcDTcGkUbCTBvZew",
+  "challenge": "NQ3dwbPQ9Ll_e-KFIsKQ6r9vNsVJmMu7hxOXttwUJZs",
+  "browser_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZ8-teexDYOtlZm0C3cmOZYXtuk6iWcvEY8yrxeKVGkgDY-IHMfVVtbdq8bWxiIgsPplDCtFfm8S1CTMGPwy9uQ",
+  "sealed_key": "v1.zjw7LaNJ38JrKpJ02PviSXb9vZAltjFD5c8I02dX5+crdgesEZjOVHN7vcyhPVntcCuyhVgXiZRXamGZ",
+  "data_key": "KC3cm0fU1c7TpekSuNxYzygF4cfiltLXiSfcm/g+8mg=",
+  "fingerprint": "3895 7032"
+}
