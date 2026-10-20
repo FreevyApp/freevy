@@ -1,0 +1,5 @@
+# Store and check out text as LF on every OS, so Windows tools do not mark untouched files as changed.
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.jpg binary
