@@ -6,9 +6,14 @@
 # Output: build\out\releases\. Upload that folder's files to https://freevy.app/releases/
 # (forge-manager scripts/publish-freevy-release.js). Earlier releases are fetched from there
 # first, so Velopack can build small delta updates.
+#
+# Signing: pass the thumbprint of the Certum code signing certificate (or set FREEVY_SIGN_THUMBPRINT).
+# Certum keeps the key in its cloud: start SimplySign Desktop and log in first, so the certificate is
+# available to signtool. Without a thumbprint the build is unsigned (as on GitHub Actions).
 param(
     [Parameter(Mandatory = $true)][string]$Version,
-    [string]$Feed = 'https://freevy.app/releases'
+    [string]$Feed = 'https://freevy.app/releases',
+    [string]$CertThumbprint = $env:FREEVY_SIGN_THUMBPRINT
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,12 +38,23 @@ if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
 Write-Output '== Fetching earlier releases for delta updates (fine to fail on the first release)'
 vpk download http --url $Feed --outputDir $releases 2>&1 | Out-Null
 
+$signing = @()
+if ($CertThumbprint) {
+    $thumb = $CertThumbprint -replace '\s', ''
+    $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Thumbprint -eq $thumb } | Select-Object -First 1
+    if (-not $cert) { throw "No certificate $thumb in the current user's store: is SimplySign Desktop running and logged in?" }
+    Write-Output "== Signing as: $($cert.Subject)"
+    $signing = @('--signParams', "/sha1 $thumb /fd sha256 /tr http://time.certum.pl /td sha256")
+} else {
+    Write-Output '== No certificate given: this build is unsigned'
+}
+
 Write-Output '== Packing'
 # The setup installs the .NET 10 Desktop Runtime and WebView2 when the PC lacks them.
 vpk pack --packId Freevy --packVersion $Version --runtime win-x64 --packDir $publish --mainExe Freevy.exe `
     --packTitle Freevy --packAuthors Freevy --icon (Join-Path $root 'src\Freevy.App\Assets\freevy.ico') `
     --framework 'net10-x64-desktop,webview2' --shortcuts 'Desktop,StartMenuRoot' --outputDir $releases `
-    --instLicense (Join-Path $PSScriptRoot 'installer-terms.md')
+    --instLicense (Join-Path $PSScriptRoot 'installer-terms.md') @signing
 if ($LASTEXITCODE -ne 0) { throw 'vpk pack failed' }
 
 Write-Output "== Done: $releases"

@@ -50,16 +50,9 @@ Release builds: `build/release.ps1 -Version x.y.z` publishes the app and packs i
 
 Everything lives in `%APPDATA%\Freevy\`: `snippets.json`, `settings.json` (secrets such as the SFTP password are encrypted for your Windows user with DPAPI), `vault.json` (master password check), backups and usage counts. Uninstalling Freevy keeps this folder.
 
-## Code signing policy
+## Code signing
 
-Freevy has applied for free code signing by the SignPath Foundation. Once accepted: free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
-
-- Committers and reviewers: [Maintainers](https://github.com/orgs/FreevyApp/teams/maintainers)
-- Approvers: [Owners](https://github.com/orgs/FreevyApp/people?query=role%3Aowner)
-- Release builds come only from this repository's [release workflow](.github/workflows/release.yml); every release is approved by hand before it is signed.
-- Privacy: see the [privacy policy](https://freevy.app/privacy). Freevy sends nothing anywhere unless you sign in to sync; the only automatic connection is the update check, which can be turned off in Settings.
-
-Full policy: [freevy.app/code-signing](https://freevy.app/code-signing).
+Windows releases are being moved to signing with an Open Source code signing certificate issued to Ozan Kurt, the maintainer; until then they are unsigned. Releases are built from tagged commits of this repository (the [release workflow](.github/workflows/release.yml) builds the same tag on GitHub Actions), each release's checksums are on the [download page](https://freevy.app/download), and installed apps verify every update against its checksum. The only automatic network connection is the update check, which can be turned off in Settings. Details: [freevy.app/code-signing](https://freevy.app/code-signing).
 
 ## License
 
