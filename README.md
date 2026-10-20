@@ -1,61 +1,57 @@
 # Freevy
 
-A small Windows text expander. It keeps its own snippets and can import an existing Breevy library once, so Breevy abbreviations keep working without Breevy. Built from Breevy's observable behaviour and data format, without using its code; the format notes live in `../Breevy/docs`.
+<img src="design/logo/freevy-icon.png" alt="" width="64" align="right">
 
-## Layout
+A free, modern text expander for Windows. Type a short abbreviation, get the whole sentence: signatures, addresses, replies, code, typo fixes. Freevy works fully offline; a free account adds end-to-end encrypted sync between your computers.
 
-- `src/Freevy.Core`: snippet model, matching engine, JSON data store, and the Breevy importer (`Import/Breevy`).
-- `src/Freevy.App`: tray app with global keyboard and mouse hooks and `SendInput` output.
-- `tests/Freevy.Core.Tests`: unit tests on a synthetic fixture.
+**[Download for Windows](https://freevy.app/download)** · [freevy.app](https://freevy.app) · [Privacy](https://freevy.app/privacy)
 
-## Data
+## Features
 
-Everything lives in `%APPDATA%\Freevy\`:
+- Expands abbreviations in any Windows app, after a space or punctuation or instantly, with case adaptation (`teh`, `Teh`, `TEH`).
+- A modern window with search, folders and many themes; lives in the tray and starts with Windows.
+- Protected snippets for passwords: encrypted with a master password, unlocked for a few minutes at a time.
+- Scheduled backups to a local folder, a synced folder (Google Drive, OneDrive, Dropbox) or an SFTP server.
+- Optional free account: end-to-end encrypted sync with version history, and a web snippet manager. The server only ever stores data it cannot read.
+- Imports an existing Breevy library on first start.
+- Updates itself in the background.
 
-- `snippets.json`: abbreviations, expansions, folders, trigger and case modes. Protected snippets have an empty `Expansion` and an `Encrypted` value instead.
-- `settings.json`: typing, backup and security settings. The SFTP password and key passphrase are stored encrypted for the current Windows user (DPAPI).
-- `vault.json`: salt, iteration count and verifier for the master password. Without it protected snippets cannot be decrypted.
-- `backup-state.json`: when the last backup ran and its result.
-- `backups\`: local backups (default location).
-- `snippets.<timestamp>.bak.json`, `vault.<timestamp>.bak.json`: copies written before an import or a master password change.
+## Security model
 
-On first start, when `snippets.json` does not exist yet and `%APPDATA%\Breevy\abbreviations.bvy` does, the Breevy library and its delimiter settings are imported automatically. After that Breevy's files are never read again unless you choose File > Import from Breevy. Edits to the JSON files are picked up automatically.
+Snippets are encrypted on your PC before they are synced, with a key that comes from your password and never leaves your devices. The server stores ciphertext, a login verifier it cannot reverse, and your data key wrapped so only your password or recovery key can open it. Signing in through the browser hands the key to the app over an ECDH-sealed one-time link. The full design, with test vectors shared by the app and the website, is in [docs/crypto.md](docs/crypto.md); the sync protocol is in [docs/sync-design.md](docs/sync-design.md).
 
-## Protected snippets and the master password
+The app has no telemetry, no crash reporting and no ads. It contacts freevy.app only to sync (when you sign in) and to check for updates.
 
-Tools > Set master password creates `vault.json` and offers to protect the snippets in folders whose name contains "password". Protected expansions are encrypted with AES-256-GCM; the key is derived from the master password with PBKDF2-SHA256 (600,000 rounds) and only kept in memory while unlocked. It is wiped when the unlock time runs out (Settings > Security, default 5 minutes), on Tools > Lock (Ctrl+L) and, by default, when Windows is locked.
+Found a security problem? See [SECURITY.md](SECURITY.md).
 
-Typing a protected abbreviation while locked opens the unlock prompt; after unlocking, the expansion is typed into the original window. There is no recovery: a forgotten master password makes protected snippets unreadable, also in backups.
+## Build
 
-## Backups
-
-A backup is a zip with `snippets.json` and `vault.json` (protected snippets stay encrypted; other snippets are plain text). Settings > Backups configures:
-
-- when: every N hours and/or a few minutes after snippets change, plus File > Back up now (Ctrl+B);
-- where: the local folder, a synced folder (Google Drive for Desktop, OneDrive, Dropbox) and an SFTP server, each keeping the newest N backups;
-- SFTP login by password and/or private key. "Test connection" shows the server's SHA-256 host key to trust; later backups refuse a different key.
-
-File > Restore from backup replaces snippets and vault from a zip after saving the current state as a `before-restore` backup.
-
-## Build and run
+Requirements: Windows 10 or 11, the [.NET 10 SDK](https://dotnet.microsoft.com/download) and the WebView2 runtime (included in current Windows).
 
 ```powershell
 dotnet test
 dotnet run --project src/Freevy.App -c Release
 ```
 
-Quit Breevy first, otherwise both programs expand the same abbreviation. `--data <folder>` uses a different data folder (handy for testing), `--tray` starts without opening the window.
+`--data <folder>` uses another data folder (handy for testing), `--tray` starts without opening the window.
 
-A single-file build:
+Release builds: `build/release.ps1 -Version x.y.z` publishes the app and packs it with [Velopack](https://velopack.io) into `Freevy-win-Setup.exe` plus update packages (needs `dotnet tool install -g vpk`). `build/make-icon.ps1` redraws the icon from the shapes in `design/logo/`.
 
-```powershell
-dotnet publish src/Freevy.App -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
-```
+## Layout
 
-## Tray menu
+| Path | Contents |
+|---|---|
+| `src/Freevy.Core` | Snippet model, matching engine, data store, vault, backups, sync engine and account crypto, Breevy importer |
+| `src/Freevy.App` | Windows host: keyboard hooks and `SendInput` output, tray, WebView2 window, sync and update managers |
+| `src/Freevy.App/ui` | The window's interface: plain HTML, CSS and JavaScript, no framework |
+| `tests/Freevy.Core.Tests` | Unit tests, including crypto vectors produced by the website's JavaScript |
 
-Left-click opens the window. The menu toggles expansion, locks or unlocks protected snippets, runs a backup, reloads the files and opens the data folder.
+## Your data
 
-## Not yet
+Everything lives in `%APPDATA%\Freevy\`: `snippets.json`, `settings.json` (secrets such as the SFTP password are encrypted for your Windows user with DPAPI), `vault.json` (master password check), backups and usage counts. Uninstalling Freevy keeps this folder.
 
-Google Drive API upload (OAuth), accounts with server-side sync, macros, multi-line expansions in Breevy imports, per-application rules.
+## License
+
+[GNU GPL v3](LICENSE). You may use, study, change and share Freevy; versions you distribute must stay open under the same license. The freevy.app website and sync server are a separate, closed project.
+
+Breevy and aBreevy8 are names of their respective owners; Freevy only reads their file format so you can bring your own abbreviations along.

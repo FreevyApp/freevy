@@ -1,0 +1,31 @@
+name: Release build
+
+# Builds the installer and update packages from a version tag (v1.2.3). The output is kept as a
+# workflow artifact; it is the input for code signing and is published to freevy.app/releases.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test tests/Freevy.Core.Tests -c Release
+      - name: Install Velopack
+        run: dotnet tool install -g vpk --version 1.2.161
+      - name: Build release
+        shell: pwsh
+        run: ./build/release.ps1 -Version $env:GITHUB_REF_NAME.TrimStart('v')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: freevy-${{ github.ref_name }}
+          path: build/out/releases/
+          if-no-files-found: error
