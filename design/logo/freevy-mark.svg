@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="24 21 53 58" role="img" aria-label="Freevy">
+  <!-- The mark without its tile, for places that already have a background. Uses currentColor. -->
+  <g fill="currentColor">
+    <rect x="24" y="21" width="12" height="58" rx="6"/>
+    <rect x="43" y="21" width="33" height="12" rx="6"/>
+    <rect x="43" y="44" width="19" height="12" rx="6"/>
+    <circle cx="71" cy="50" r="5.5"/>
+  </g>
+</svg>

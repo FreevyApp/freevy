@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <Content Include="ui\**" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Assets\freevy.ico" LogicalName="Freevy.Icon" />
   </ItemGroup>
 
 </Project>

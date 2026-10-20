@@ -39,9 +39,10 @@
   border-radius: var(--radius-control);
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font: 700 var(--type-xs) / 1 var(--font-mono);
   box-shadow: var(--glow-accent);
 }
+/* The Freevy mark (design/logo/freevy-mark.svg): an F made of a cursor and text lines. */
+.brand-glyph { width: 11px; height: 12px; fill: currentColor; }
 
 .status-chips { display: flex; gap: var(--space-2); margin-left: var(--space-3); }
 .chip {

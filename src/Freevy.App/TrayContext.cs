@@ -56,7 +56,7 @@ internal sealed class TrayContext : ApplicationContext
         ]);
         menu.Opening += (_, _) => UpdateMenu();
 
-        _tray = new NotifyIcon { Icon = AppIcon.Get(), Text = AppName, ContextMenuStrip = menu, Visible = true };
+        _tray = new NotifyIcon { Icon = AppIcon.Tray(), Text = AppName, ContextMenuStrip = menu, Visible = true };
         _tray.MouseClick += (_, e) =>
         {
             if (e.Button == MouseButtons.Left)

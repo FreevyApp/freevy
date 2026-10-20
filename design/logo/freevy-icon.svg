@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Freevy">
+  <!-- Freevy mark: an F made of a text cursor (stem), a line of text (top arm) and a line still being typed (short arm and caret dot). -->
+  <rect width="100" height="100" rx="24" fill="#36DECD"/>
+  <g fill="#0C2226">
+    <rect x="24" y="21" width="12" height="58" rx="6"/>
+    <rect x="43" y="21" width="33" height="12" rx="6"/>
+    <rect x="43" y="44" width="19" height="12" rx="6"/>
+    <circle cx="71" cy="50" r="5.5"/>
+  </g>
+</svg>
