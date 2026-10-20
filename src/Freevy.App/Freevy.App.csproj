@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.13" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -15,6 +16,14 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Freevy.exe, while the code keeps its Freevy.App namespace. -->
+    <AssemblyName>Freevy</AssemblyName>
+    <RootNamespace>Freevy.App</RootNamespace>
+    <ApplicationIcon>Assets\freevy.ico</ApplicationIcon>
+    <Product>Freevy</Product>
+    <Company>Freevy</Company>
+    <!-- Set by build/release.ps1 (-p:Version=...); the installer and updates use the same number. -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

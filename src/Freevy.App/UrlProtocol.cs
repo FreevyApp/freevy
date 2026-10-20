@@ -32,5 +32,7 @@ internal static class UrlProtocol
         open.SetValue(null, command);
     }
 
+    public static void Unregister() => Registry.CurrentUser.DeleteSubKeyTree(KeyPath, throwOnMissingSubKey: false);
+
     public static bool IsLink(string argument) => argument.StartsWith(Scheme + ":", StringComparison.OrdinalIgnoreCase);
 }

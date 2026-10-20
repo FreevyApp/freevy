@@ -130,6 +130,8 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 await core.Sync.SignInAsync(new Uri(Text(a, "server")), Text(a, "email"), Text(a, "password"), Text(a, "device"), CancellationToken.None);
                 return State();
             case "signOut": await core.Sync.SignOutAsync(); return State();
+            case "restartToUpdate": core.Updates.RestartToUpdate(); return null;
+            case "checkForUpdates": await core.Updates.CheckAsync(); return State();
             case "signInWithBrowser":
                 // Automated UI tests (--offscreen) open the page themselves instead of the default browser.
                 var browserSignIn = core.Sync.BeginBrowserSignIn(new Uri(Text(a, "server")), Text(a, "device"), openBrowser: !WebWindow.Offscreen);
@@ -157,6 +159,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         return new
         {
             version = typeof(Bridge).Assembly.GetName().Version?.ToString(3),
+            update = new { installed = core.Updates.IsInstalled, ready = core.Updates.ReadyVersion },
             dataDirectory = core.Store.Directory,
             breevyAvailable = core.BreevyAvailable,
             settings = new

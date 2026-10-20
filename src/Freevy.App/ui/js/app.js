@@ -665,7 +665,9 @@ function renderSettings() {
             ${row('Export snippets', 'A JSON file with all snippets; protected ones stay encrypted.', `<button class="btn btn--small" data-action="export">${icon('upload')}Export…</button>`)}
             ${row('Data folder', escapeHtml(state.app.dataDirectory), `<button class="btn btn--small" data-action="open-data">${icon('folder')}Open</button>`)}
         </div>
-        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}.</p>
+        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}.
+            ${state.app.update?.ready ? `<button class="link" type="button" data-action="restart-to-update">Restart to update to ${escapeHtml(state.app.update.ready)}</button>`
+                : state.app.update?.installed ? '<button class="link" type="button" data-action="check-updates">Check for updates</button>' : ''}</p>
     </div>`;
 }
 
@@ -853,6 +855,14 @@ document.addEventListener('click', async (event) => {
             state.browserSignIn = null;
             renderPage();
             return;
+        case 'restart-to-update': return call('restartToUpdate');
+        case 'check-updates': {
+            target.disabled = true;
+            state.app = (await run(() => call('checkForUpdates'))) ?? state.app;
+            if (!state.app.update?.ready) toast('Freevy is up to date');
+            renderPage();
+            return;
+        }
         case 'open-register': return call('openAccountPage', { path: 'register' });
         case 'open-account': return call('openAccountPage', { path: 'account' });
         case 'sync-now': return call('syncNow');

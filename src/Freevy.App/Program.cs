@@ -1,4 +1,5 @@
 using Freevy.Core;
+using Velopack;
 
 namespace Freevy.App;
 
@@ -7,6 +8,18 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // Installer hooks run here first and exit straight away; a normal start passes through.
+        VelopackApp.Build()
+            // A text expander is only useful while it runs: start with Windows unless turned off in Settings.
+            .OnAfterInstallFastCallback(_ => Autostart.Set(true))
+            .OnBeforeUninstallFastCallback(_ =>
+            {
+                // Leave no trace in the registry; the snippets in %APPDATA%\Freevy stay, on purpose.
+                Autostart.Set(false);
+                UrlProtocol.Unregister();
+            })
+            .Run();
+
         // Windows starts the app with a freevy:// link when the website hands a sign-in back.
         var link = args.FirstOrDefault(UrlProtocol.IsLink);
         using var single = new Mutex(true, @"Local\Freevy", out var first);

@@ -106,6 +106,15 @@ internal sealed class AppCore : IDisposable
 
     public SyncManager Sync { get; }
 
+    /// <summary>Updates from freevy.app; inactive unless Freevy was installed with its installer.</summary>
+    public AppUpdater Updates { get; } = new();
+
+    /// <summary>Shows a message in the window (or as a tray balloon while it is hidden).</summary>
+    public void Notify(string message, bool problem = false) => Notice?.Invoke(message, problem);
+
+    /// <summary>Asks the window to refresh after something outside the core changed, such as a ready update.</summary>
+    public void RaiseChanged(Change change) => Changed?.Invoke(change);
+
     public Settings Settings => _settings;
 
     public IReadOnlyList<Snippet> Snippets => _snippets;
@@ -617,6 +626,7 @@ internal sealed class AppCore : IDisposable
         _statsTimer.Dispose();
         Backups.Dispose();
         Sync.Dispose();
+        Updates.Dispose();
         Vault.Dispose();
     }
 }

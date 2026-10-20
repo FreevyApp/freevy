@@ -38,11 +38,13 @@ internal sealed class TrayContext : ApplicationContext
             }
         });
 
+        var updateItem = new ToolStripMenuItem("Restart to update", null, (_, _) => _core.Updates.RestartToUpdate()) { Visible = false };
         var menu = new ContextMenuStrip();
         var openItem = new ToolStripMenuItem("Open Freevy", null, (_, _) => ShowWindow()) { Font = new Font(SystemFonts.MenuFont!, FontStyle.Bold) };
         menu.Items.AddRange(
         [
             openItem,
+            updateItem,
             new ToolStripSeparator(),
             _enabledItem,
             _lockItem,
@@ -76,6 +78,18 @@ internal sealed class TrayContext : ApplicationContext
 
         // freevy:// links (browser sign-in) arrive from the process Windows starts for them.
         _links = new LinkChannel(_ui, OpenLink);
+
+        _core.Updates.Ready += version =>
+        {
+            updateItem.Text = $"Restart to update to {version}";
+            updateItem.Visible = true;
+            _core.Notify($"Freevy {version} is ready. It installs the next time Freevy starts, or restart it from the tray menu.");
+            _core.RaiseChanged(Change.Settings);
+        };
+        if (!WebWindow.Offscreen)
+        {
+            _core.Updates.Start();
+        }
 
         _showWindowWait = ThreadPool.RegisterWaitForSingleObject(
             _showWindowEvent, (_, _) => _ui.Post(_ => ShowWindow(), null), null, Timeout.Infinite, executeOnlyOnce: false);
@@ -139,6 +153,7 @@ internal sealed class TrayContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         _links.Dispose();
+        _core.Updates.ApplyOnExit();
         _showWindowWait.Unregister(null);
         _showWindowEvent.Dispose();
         _window?.Dispose();
