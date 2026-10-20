@@ -60,6 +60,9 @@ const store = {
         ['Code', ['dd'], 'console.log()', ''],
         ['Games/WoW', ['wowgg'], 'Good game, well played!', ''],
         ['Others', ['addr'], '221B Example Street, London', 'Home address'],
+        ['Imported', ['teh'], 'the', ''],
+        ['Imported', ['addr'], '221B Example Street, London', ''],
+        ['Others', ['addr'], 'Office: 1 Example Plaza, London', 'Office address'],
     ].map(([folder, abbreviations, expansion, description]) => ({
         id: uuid(), abbreviations, expansion, description, folder, trigger: 'after', wordStart: true, case: 'adapt', protected: false, modified: new Date().toISOString(),
     })).concat([{ id: uuid(), abbreviations: ['gmailpw'], expansion: null, description: 'Gmail', folder: 'Passwords', trigger: 'after', wordStart: true, case: 'exact', protected: true, modified: new Date().toISOString() }]),

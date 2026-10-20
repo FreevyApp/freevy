@@ -558,3 +558,30 @@ kbd {
   color: var(--color-accent);
   text-align: center;
 }
+
+/* ---- Edit mode and duplicates ------------------------------------------ */
+.footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1.5px var(--color-border-strong, var(--color-text-subtle));
+  color: transparent;
+  transition: background-color var(--duration-fast) var(--ease-smooth), box-shadow var(--duration-fast) var(--ease-smooth);
+}
+.check .icon { width: 12px; height: 12px; }
+.check[data-checked="true"] { background: var(--color-accent); box-shadow: none; color: var(--color-on-accent); }
+.snippet-row--editing[aria-selected="true"] { background: var(--color-accent-soft); box-shadow: inset 0 0 0 0.5px var(--color-accent-ring); }
+.dup-warn { display: inline-grid; flex: none; place-items: center; color: var(--color-warning); }
+.dup-warn .icon { width: 16px; height: 16px; }
+.folder-item--warning { color: var(--color-warning); }
+.folder-item--warning > .icon { width: 14px; height: 14px; flex: none; }
+.folder-item--warning .count { color: var(--color-warning); }
+.check:not([data-checked="true"]) .icon { visibility: hidden; }
+/* In edit mode the footer holds more buttons: the count stays on one line and the actions wrap below it. */
+.list-footer { flex-wrap: wrap; row-gap: var(--space-2); }
+.list-footer > span:first-child { white-space: nowrap; }
+.list-footer .footer-actions { margin-left: auto; }

@@ -12,11 +12,15 @@ const THEMES = [
 ];
 const DEFAULT_DELIMITERS = ',.?!()<>[]{}:;"/\\-\' \\t\\n';
 const ALL = '__all__';
+// A sidebar filter, not a folder: snippets whose abbreviation another snippet also uses.
+const DUPLICATES = '__duplicates__';
 const ROW_HEIGHT = 56;
 const folderColors = ['oklch(0.84 0.13 182)', 'oklch(0.78 0.12 290)', 'oklch(0.80 0.12 230)', 'oklch(0.85 0.12 85)', 'oklch(0.78 0.14 350)', 'oklch(0.82 0.13 150)', 'oklch(0.80 0.12 40)'];
 const colorFor = (name) => folderColors[[...name].reduce((sum, c) => sum + c.charCodeAt(0), 0) % folderColors.length];
 
 const state = {
+    editMode: false, // the list shows checkboxes for bulk actions
+    checked: new Set(), // ids ticked in edit mode
     app: null,
     browserSignIn: null, // { fingerprint } while the website finishes a browser sign-in
     snippets: [],
@@ -52,7 +56,7 @@ async function run(action, success) {
 const settings = () => state.app.settings;
 const isMasked = (s) => settings().maskFoldersContaining && s.folder.toLowerCase().includes(settings().maskFoldersContaining.toLowerCase());
 const firstLine = (text) => (text ?? '').split(String.fromCharCode(10))[0];
-const plural = (n, word) => `${number.format(n)} ${word}${n === 1 ? '' : 's'}`;
+const plural = (n, word, many = `${word}s`) => `${number.format(n)} ${n === 1 ? word : many}`;
 
 async function refreshState() {
     state.app = await call('getState');
@@ -148,14 +152,17 @@ function renderFolders() {
     const selected = state.folder === null ? ALL : state.folder;
     const row = (value, label, count, locked, withMenu) => `
         <div class="folder-row">
-            <button class="folder-item" data-folder="${escapeHtml(value)}" aria-pressed="${selected === value}">
-                <span class="dot" data-color="${value === ALL ? '' : colorFor(value || '?')}"></span>
+            <button class="folder-item${value === DUPLICATES ? ' folder-item--warning' : ''}" data-folder="${escapeHtml(value)}" aria-pressed="${selected === value}">
+                ${value === DUPLICATES ? icon('alert') : `<span class="dot" data-color="${value === ALL ? '' : colorFor(value || '?')}"></span>`}
                 <span class="name">${escapeHtml(label)}</span>
                 <span class="count">${locked ? icon('lock') : ''}${number.format(count)}</span>
             </button>
             ${withMenu ? `<button class="folder-menu-button" data-folder-menu="${escapeHtml(value)}" aria-label="Actions for ${escapeHtml(label)}" aria-haspopup="menu" aria-expanded="false">${icon('more')}</button>` : ''}
         </div>`;
+    const duplicateCount = duplicates().size;
+    if (state.folder === DUPLICATES && duplicateCount === 0) state.folder = null;
     $('#folders').innerHTML = row(ALL, 'All snippets', state.snippets.length, false, false)
+        + (duplicateCount ? row(DUPLICATES, 'Duplicates', duplicateCount, false, false) : '')
         + (counts.get('') ? row('', 'No folder', counts.get(''), false, false) : '')
         + folders.map((f) => row(f, f, counts.get(f), state.snippets.some((s) => s.folder === f && s.protected), true)).join('');
     // Set through the DOM: the page's CSP forbids inline style attributes.
@@ -167,11 +174,21 @@ function renderFolders() {
 }
 
 function folderMenu(trigger, folder) {
-    const count = state.snippets.filter((s) => s.folder === folder || s.folder.startsWith(folder + '/')).length;
+    const inFolder = state.snippets.filter((s) => s.folder === folder || s.folder.startsWith(folder + '/'));
+    const count = inFolder.length;
+    const locked = inFolder.filter((s) => s.protected).length;
+    const open = count - locked;
+    // Only the actions that would change something; a mixed folder gets both, with counts.
+    const protection = [];
+    if (open > 0) {
+        protection.push({ label: locked > 0 ? `Protect ${number.format(open)} more` : 'Protect all snippets', icon: 'lock', action: () => protectFolder(folder, true) });
+    }
+    if (locked > 0) {
+        protection.push({ label: open > 0 ? `Remove protection (${number.format(locked)})` : 'Remove protection', icon: 'unlock', action: () => protectFolder(folder, false) });
+    }
     menu(trigger, [
         { label: 'Rename folder…', icon: 'pencil', action: () => renameFolder(folder) },
-        { label: 'Protect all snippets', icon: 'lock', action: () => protectFolder(folder, true) },
-        { label: 'Remove protection', icon: 'unlock', action: () => protectFolder(folder, false) },
+        ...protection,
         'separator',
         { label: `Delete folder (${count})…`, icon: 'trash', danger: true, action: () => deleteFolder(folder, count) },
     ]);
@@ -211,23 +228,91 @@ async function deleteFolder(folder, count) {
     }
 }
 
+// ---- Duplicates -----------------------------------------------------------------------
+
+let duplicateCache = { source: null, map: new Map() };
+
+/** id -> abbreviations of that snippet which another snippet also uses (case is ignored). */
+function duplicates() {
+    if (duplicateCache.source === state.snippets) return duplicateCache.map;
+    const owners = new Map();
+    for (const s of state.snippets) {
+        for (const a of new Set(s.abbreviations.map((x) => x.toLowerCase()))) {
+            if (!owners.has(a)) owners.set(a, []);
+            owners.get(a).push(s.id);
+        }
+    }
+    const map = new Map();
+    for (const [abbr, ids] of owners) {
+        if (ids.length < 2) continue;
+        for (const id of ids) {
+            if (!map.has(id)) map.set(id, []);
+            map.get(id).push(abbr);
+        }
+    }
+    duplicateCache = { source: state.snippets, map };
+    return map;
+}
+
+function duplicateNote(s) {
+    const shared = duplicates().get(s.id);
+    if (!shared) return '';
+    const others = new Set(state.snippets.filter((x) => x.id !== s.id && x.abbreviations.some((a) => shared.includes(a.toLowerCase()))).map((x) => x.id)).size;
+    return `${shared.map((a) => `“${a}”`).join(', ')} is also used by ${plural(others, 'other snippet')}. Only one of them can expand.`;
+}
+
+/**
+ * In the Duplicates view: every exact copy (same abbreviations and text) except the one to keep
+ * in each group, which is the most complete: it has a description, then the longer one, then the oldest.
+ */
+function extraCopies() {
+    const groups = new Map();
+    for (const s of state.visible) {
+        if (s.protected || s.expansion == null) continue;
+        const key = JSON.stringify([[...s.abbreviations].map((a) => a.toLowerCase()).sort(), s.expansion]);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(s);
+    }
+    const score = (s) => [s.description ? 1 : 0, (s.description ?? '').length, -(Date.parse(s.created ?? s.modified ?? '') || 0)];
+    const better = (a, b) => {
+        const [x, y] = [score(a), score(b)];
+        for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] > y[i] ? a : b;
+        return a;
+    };
+    const extra = [];
+    for (const copies of groups.values()) {
+        if (copies.length < 2) continue;
+        const keep = copies.reduce(better);
+        copies.forEach((s) => s !== keep && extra.push(s.id));
+    }
+    return extra;
+}
+
 // ---- Snippet list (virtualized) -----------------------------------------------------
 
 function filterSnippets() {
     const query = state.query.trim().toLowerCase();
+    const dupes = duplicates();
+    const inView = (s) => state.folder === DUPLICATES ? dupes.has(s.id)
+        : state.folder === null || s.folder === state.folder || (state.folder !== '' && s.folder.startsWith(state.folder + '/'));
     state.visible = state.snippets.filter((s) =>
-        (state.folder === null || s.folder === state.folder || (state.folder !== '' && s.folder.startsWith(state.folder + '/')))
+        inView(s)
         && (!query
             || s.abbreviations.some((a) => a.toLowerCase().includes(query))
             || s.description.toLowerCase().includes(query)
             || (!s.protected && !isMasked(s) && (s.expansion ?? '').toLowerCase().includes(query))));
+    if (state.folder === DUPLICATES) {
+        // Copies next to each other: by the shared abbreviation, then by folder.
+        const key = (s) => [...dupes.get(s.id)].sort()[0];
+        state.visible.sort((a, b) => key(a).localeCompare(key(b)) || a.folder.localeCompare(b.folder));
+    }
 }
 
 function renderList() {
     filterSnippets();
     const list = $('#list');
     const spacer = $('#list-spacer');
-    $('#list-count').textContent = plural(state.visible.length, 'snippet');
+    renderListFooter();
 
     if (state.visible.length === 0) {
         spacer.style.height = 'auto';
@@ -246,9 +331,13 @@ function renderList() {
         const primary = s.protected ? `<span class="locked">${icon('lock')}Protected</span>`
             : isMasked(s) ? '<span class="masked">Hidden</span>'
             : escapeHtml((s.expansion ?? '').split('\n')[0] || '(empty)');
+        const checked = state.editMode && state.checked.has(s.id);
+        const warning = duplicateNote(s);
         html += `
-            <button class="snippet-row" role="option" data-id="${s.id}" aria-selected="${s.id === state.selectedId}" tabindex="-1" data-top="${i * ROW_HEIGHT}">
+            <button class="snippet-row${state.editMode ? ' snippet-row--editing' : ''}" role="option" data-id="${s.id}" aria-selected="${state.editMode ? checked : s.id === state.selectedId}" tabindex="-1" data-top="${i * ROW_HEIGHT}">
+                ${state.editMode ? `<span class="check" data-checked="${checked}" aria-hidden="true">${icon('check')}</span>` : ''}
                 <span class="abbr">${escapeHtml(s.abbreviations[0])}</span>
+                ${warning ? `<span class="dup-warn" title="${escapeHtml(warning)}" aria-label="${escapeHtml(warning)}">${icon('alert')}</span>` : ''}
                 <span class="snippet-text">
                     <span class="primary">${primary}</span>
                     <span class="secondary">${escapeHtml(s.description || s.folder || 'No folder')}${s.abbreviations.length > 1 ? ` · +${s.abbreviations.length - 1}` : ''}</span>
@@ -258,6 +347,61 @@ function renderList() {
 
     spacer.innerHTML = html;
     $$('.snippet-row', spacer).forEach((row) => { row.style.top = `${row.dataset.top}px`; });
+}
+
+function renderListFooter() {
+    const footer = $('#list-footer');
+    if (!state.editMode) {
+        footer.innerHTML = `<span>${plural(state.visible.length, 'snippet')}</span>
+            <span class="footer-actions">
+                <button class="btn btn--ghost btn--small" data-action="edit-mode" ${state.snippets.length ? '' : 'disabled'}>Select</button>
+                <button class="btn btn--primary btn--small" id="new-snippet">${icon('plus')}New snippet</button>
+            </span>`;
+        return;
+    }
+
+    const count = state.checked.size;
+    const allVisible = state.visible.length > 0 && state.visible.every((s) => state.checked.has(s.id));
+    footer.innerHTML = `<span>${count ? `${number.format(count)} selected` : 'Select snippets'}</span>
+        <span class="footer-actions">
+            ${state.folder === DUPLICATES ? '<button class="btn btn--ghost btn--small" data-action="select-extra">Select extra copies</button>' : ''}
+            <button class="btn btn--ghost btn--small" data-action="select-all">${allVisible ? 'Select none' : 'Select all'}</button>
+            <button class="btn btn--small btn--danger-solid" data-action="delete-checked" ${count ? '' : 'disabled'}>${icon('trash')}Delete${count ? ` (${number.format(count)})` : ''}</button>
+            <button class="btn btn--small" data-action="edit-done">Done</button>
+        </span>`;
+}
+
+function setEditMode(on) {
+    state.editMode = on;
+    state.checked.clear();
+    renderList();
+}
+
+function toggleChecked(id) {
+    if (state.checked.has(id)) state.checked.delete(id);
+    else state.checked.add(id);
+    renderList();
+}
+
+async function deleteChecked() {
+    const ids = [...state.checked];
+    if (!ids.length) return;
+    const locked = state.snippets.filter((s) => ids.includes(s.id) && s.protected).length;
+    const body = `${locked ? `${plural(locked, 'protected snippet')} included. ` : ''}Backups keep older copies.`;
+    if (!(await confirmDialog({ title: `Delete ${plural(ids.length, 'snippet')}?`, body, confirm: 'Delete', danger: true }))) return;
+    if (ids.includes(state.selectedId)) {
+        state.selectedId = null;
+        state.draft = null;
+        state.original = null;
+    }
+    const done = await run(() => call('deleteSnippets', { ids }), `${plural(ids.length, 'snippet')} deleted`);
+    if (done !== undefined) {
+        state.checked.clear();
+        await refreshSnippets();
+        renderFolders();
+        renderList();
+        renderEditor();
+    }
 }
 
 function scrollToSelected() {
@@ -297,7 +441,7 @@ async function newSnippet() {
     if (!(await confirmLeave())) return;
     const s = settings();
     state.selectedId = null;
-    state.draft = { id: null, abbreviations: [], expansion: '', description: '', folder: state.folder ?? '', trigger: s.defaultTrigger, wordStart: s.defaultWordStart, case: s.defaultCase, protected: false };
+    state.draft = { id: null, abbreviations: [], expansion: '', description: '', folder: state.folder === DUPLICATES ? '' : state.folder ?? '', trigger: s.defaultTrigger, wordStart: s.defaultWordStart, case: s.defaultCase, protected: false };
     state.original = JSON.stringify(state.draft);
     showView('snippets');
     renderEditor();
@@ -732,7 +876,7 @@ document.addEventListener('click', async (event) => {
         return renderList();
     }
     if (target.dataset.folderMenu !== undefined) return folderMenu(target, target.dataset.folderMenu);
-    if (target.matches('.snippet-row')) return select(target.dataset.id);
+    if (target.matches('.snippet-row')) return state.editMode ? toggleChecked(target.dataset.id) : select(target.dataset.id);
     if (target.id === 'new-snippet') return newSnippet();
     if (target.dataset.themeChoice) {
         applyTheme(target.dataset.themeChoice, true);
@@ -864,6 +1008,21 @@ document.addEventListener('click', async (event) => {
             renderPage();
             return;
         }
+        case 'edit-mode': return setEditMode(true);
+        case 'edit-done': return setEditMode(false);
+        case 'select-all': {
+            const allVisible = state.visible.every((s) => state.checked.has(s.id));
+            state.visible.forEach((s) => (allVisible ? state.checked.delete(s.id) : state.checked.add(s.id)));
+            return renderList();
+        }
+        case 'select-extra': {
+            const extra = extraCopies();
+            if (!extra.length) return toast('No exact copies here: these snippets differ, so choose which to keep yourself');
+            extra.forEach((id) => state.checked.add(id));
+            renderList();
+            return toast(`${plural(extra.length, 'exact copy', 'exact copies')} selected; one of each is kept`);
+        }
+        case 'delete-checked': return deleteChecked();
         case 'open-register': return call('openAccountPage', { path: 'register' });
         case 'open-account': return call('openAccountPage', { path: 'account' });
         case 'sync-now': return call('syncNow');
@@ -1030,6 +1189,18 @@ document.addEventListener('keydown', async (event) => {
         $('#search').focus();
         $('#search').select();
         return;
+    }
+
+    // Edit mode: Ctrl+A ticks everything shown, Delete removes the ticked snippets, Escape leaves.
+    const typing = event.target.matches?.('input, textarea, select, [contenteditable="true"]');
+    if (state.editMode && state.view === 'snippets' && !typing && !document.querySelector('dialog[open]')) {
+        if (ctrl && key === 'a') {
+            event.preventDefault();
+            state.visible.forEach((s) => state.checked.add(s.id));
+            return renderList();
+        }
+        if (event.key === 'Delete') { event.preventDefault(); return deleteChecked(); }
+        if (event.key === 'Escape') { event.preventDefault(); return setEditMode(false); }
     }
 
     // Arrow keys move between options in segmented controls and theme cards, like radio buttons.
