@@ -68,7 +68,7 @@ const store = {
     signedIn: false,
     settings: {
         expansionEnabled: true, delimiters: ',.?!()<>[]{}:;"/\\\\-\' \\t\\n', clipboardThreshold: 3500, defaultTrigger: 'after', defaultWordStart: true, defaultCase: 'adapt',
-        maskFoldersContaining: '', unlockMinutes: 5, lockWhenWindowsLocks: true, theme: 'freevy', autostart: false,
+        maskFoldersContaining: '', unlockMinutes: 5, lockWhenWindowsLocks: true, autoUpdate: true, theme: 'freevy', autostart: false,
         backup: {
             enabled: true, intervalHours: 24, onChange: true, keepCount: 10, localEnabled: true, localDirectory: 'C:\\Users\\you\\AppData\\Roaming\\Freevy\\backups',
             folderEnabled: false, folderDirectory: '', sftp: { enabled: false, host: '', port: 22, username: '', hasPassword: false, privateKeyPath: '', hasPassphrase: false, remoteDirectory: 'Freevy-backups', hostKeyFingerprint: '' },

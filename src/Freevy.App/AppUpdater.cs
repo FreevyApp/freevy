@@ -17,6 +17,9 @@ internal sealed class AppUpdater : IDisposable
     private VelopackAsset? _ready;
     private bool _checking;
 
+    /// <summary>Asked before every automatic check; false while the user has turned updates off.</summary>
+    public Func<bool> Enabled { get; set; } = () => true;
+
     /// <summary>Raised on the UI thread with the version number once an update is downloaded.</summary>
     public event Action<string>? Ready;
 
@@ -34,9 +37,12 @@ internal sealed class AppUpdater : IDisposable
         _firstCheck.Tick += async (_, _) =>
         {
             _firstCheck.Stop();
-            await CheckAsync();
+            if (Enabled()) await CheckAsync();
         };
-        _timer.Tick += async (_, _) => await CheckAsync();
+        _timer.Tick += async (_, _) =>
+        {
+            if (Enabled()) await CheckAsync();
+        };
         _firstCheck.Start();
         _timer.Start();
     }

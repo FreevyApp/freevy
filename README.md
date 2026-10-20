@@ -50,6 +50,17 @@ Release builds: `build/release.ps1 -Version x.y.z` publishes the app and packs i
 
 Everything lives in `%APPDATA%\Freevy\`: `snippets.json`, `settings.json` (secrets such as the SFTP password are encrypted for your Windows user with DPAPI), `vault.json` (master password check), backups and usage counts. Uninstalling Freevy keeps this folder.
 
+## Code signing policy
+
+Freevy has applied for free code signing by the SignPath Foundation. Once accepted: free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- Committers and reviewers: [Maintainers](https://github.com/orgs/FreevyApp/teams/maintainers)
+- Approvers: [Owners](https://github.com/orgs/FreevyApp/people?query=role%3Aowner)
+- Release builds come only from this repository's [release workflow](.github/workflows/release.yml); every release is approved by hand before it is signed.
+- Privacy: see the [privacy policy](https://freevy.app/privacy). Freevy sends nothing anywhere unless you sign in to sync; the only automatic connection is the update check, which can be turned off in Settings.
+
+Full policy: [freevy.app/code-signing](https://freevy.app/code-signing).
+
 ## License
 
 [GNU GPL v3](LICENSE). You may use, study, change and share Freevy; versions you distribute must stay open under the same license. The freevy.app website and sync server are a separate, closed project.

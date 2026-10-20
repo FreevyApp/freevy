@@ -637,6 +637,7 @@ function renderSettings() {
             <div class="group-title">General</div>
             ${row('Expand abbreviations', 'Pause Freevy without closing it. Also on the chip in the title bar.', toggle('expansionEnabled', s.expansionEnabled, 'Expand abbreviations'))}
             ${row('Start with Windows', 'Freevy starts in the tray when you sign in to Windows.', toggle('autostart', s.autostart, 'Start with Windows'))}
+            ${row('Update automatically', 'A few times a day Freevy asks freevy.app for a new version and installs it in the background. The request carries your Freevy version and nothing else about you.', toggle('autoUpdate', s.autoUpdate, 'Update automatically'))}
         </div>
 
         <div class="group">

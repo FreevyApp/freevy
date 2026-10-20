@@ -70,6 +70,7 @@ internal sealed class AppCore : IDisposable
             }
         };
         Sync.StatusChanged += () => Changed?.Invoke(Change.Sync);
+        WireUpdates();
         Sync.SignedOut += message => Notice?.Invoke(message, true);
         Sync.Applied += OnSyncApplied;
         SystemEvents.SessionSwitch += OnSessionSwitch;
@@ -108,6 +109,8 @@ internal sealed class AppCore : IDisposable
 
     /// <summary>Updates from freevy.app; inactive unless Freevy was installed with its installer.</summary>
     public AppUpdater Updates { get; } = new();
+
+    private void WireUpdates() => Updates.Enabled = () => _settings.AutoUpdate;
 
     /// <summary>Shows a message in the window (or as a tray balloon while it is hidden).</summary>
     public void Notify(string message, bool problem = false) => Notice?.Invoke(message, problem);

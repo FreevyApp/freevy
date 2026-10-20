@@ -173,6 +173,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 s.MaskFoldersContaining,
                 s.UnlockMinutes,
                 s.LockWhenWindowsLocks,
+                s.AutoUpdate,
                 s.Theme,
                 autostart = Autostart.IsEnabled,
                 backup = new
@@ -257,6 +258,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         if (a.TryGetProperty("maskFoldersContaining", out v)) s = s with { MaskFoldersContaining = (v.GetString() ?? "").Trim() };
         if (a.TryGetProperty("unlockMinutes", out v)) s = s with { UnlockMinutes = Math.Clamp(v.GetInt32(), 1, 1440) };
         if (a.TryGetProperty("lockWhenWindowsLocks", out v)) s = s with { LockWhenWindowsLocks = v.GetBoolean() };
+        if (a.TryGetProperty("autoUpdate", out v)) s = s with { AutoUpdate = v.GetBoolean() };
         if (a.TryGetProperty("syncIntervalMinutes", out v)) s = s with { Sync = s.Sync with { IntervalMinutes = Math.Clamp(v.GetInt32(), 1, 1440) } };
 
         if (a.TryGetProperty("backup", out var b))

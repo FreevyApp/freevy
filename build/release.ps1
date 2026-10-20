@@ -37,7 +37,8 @@ Write-Output '== Packing'
 # The setup installs the .NET 10 Desktop Runtime and WebView2 when the PC lacks them.
 vpk pack --packId Freevy --packVersion $Version --runtime win-x64 --packDir $publish --mainExe Freevy.exe `
     --packTitle Freevy --packAuthors Freevy --icon (Join-Path $root 'src\Freevy.App\Assets\freevy.ico') `
-    --framework 'net10-x64-desktop,webview2' --shortcuts 'Desktop,StartMenuRoot' --outputDir $releases
+    --framework 'net10-x64-desktop,webview2' --shortcuts 'Desktop,StartMenuRoot' --outputDir $releases `
+    --instLicense (Join-Path $PSScriptRoot 'installer-terms.md')
 if ($LASTEXITCODE -ne 0) { throw 'vpk pack failed' }
 
 Write-Output "== Done: $releases"

@@ -39,6 +39,9 @@ public sealed record Settings
 
     public SyncSettings Sync { get; init; } = new();
 
+    /// <summary>Check freevy.app for new versions and install them in the background.</summary>
+    public bool AutoUpdate { get; init; } = true;
+
     /// <summary>Name of the UI theme (see ui/css/themes.css in the app).</summary>
     public string Theme { get; init; } = "freevy";
 
