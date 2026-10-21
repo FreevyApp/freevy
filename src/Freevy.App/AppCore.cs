@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using Freevy.Core;
 using Freevy.Core.Backup;
+using Freevy.Core.Import;
 using Freevy.Core.Import.Breevy;
 using Freevy.Core.Security;
 using Freevy.Core.Macros;
@@ -15,6 +16,9 @@ internal sealed class UserError(string message) : Exception(message);
 
 /// <summary>What changed, so the UI only refreshes what it needs.</summary>
 internal enum Change { Snippets, Settings, Vault, Sync, Backup, Stats }
+
+/// <summary>What an import did: added, already there, unusable (regex, images, forms), and only partly converted.</summary>
+internal sealed record ImportSummary(int Added, int Duplicates, int Skipped, int Adjusted);
 
 /// <summary>
 /// Everything Freevy does, without any UI: expansion, snippets, vault, backups, sync, stats
@@ -151,7 +155,7 @@ internal sealed class AppCore : IDisposable
         var cleaned = abbreviations.Select(a => a.Trim()).Where(a => a.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         if (cleaned.Count == 0)
         {
-            throw new UserError("Add at least one abbreviation.");
+            throw new UserError(L.T("Add at least one abbreviation."));
         }
 
         var previous = id is { } existing ? _snippets.FirstOrDefault(s => s.Id == existing) : null;
@@ -169,7 +173,7 @@ internal sealed class AppCore : IDisposable
             {
                 if (!Vault.IsConfigured)
                 {
-                    throw new UserError("Set a master password first (Master password page), then save again.");
+                    throw new UserError(L.T("Set a master password first (Master password page), then save again."));
                 }
 
                 encrypted = UnlockedVault().Encrypt(text ?? "");
@@ -251,14 +255,14 @@ internal sealed class AppCore : IDisposable
 
     public string RevealSnippet(Guid id)
     {
-        var snippet = _snippets.FirstOrDefault(s => s.Id == id) ?? throw new UserError("That snippet no longer exists.");
+        var snippet = _snippets.FirstOrDefault(s => s.Id == id) ?? throw new UserError(L.T("That snippet no longer exists."));
         try
         {
             return SnippetProtection.Reveal(snippet, UnlockedVault());
         }
         catch (CryptographicException)
         {
-            throw new UserError("This snippet could not be decrypted with the current master password.");
+            throw new UserError(L.T("This snippet could not be decrypted with the current master password."));
         }
     }
 
@@ -267,7 +271,7 @@ internal sealed class AppCore : IDisposable
         newName = newName.Trim().Trim('/');
         if (newName.Length == 0)
         {
-            throw new UserError("Enter a folder name.");
+            throw new UserError(L.T("Enter a folder name."));
         }
 
         var changed = 0;
@@ -332,7 +336,7 @@ internal sealed class AppCore : IDisposable
     {
         if (newPassword.Length < Core.Security.Vault.MinimumPasswordLength)
         {
-            throw new UserError($"The master password needs at least {Core.Security.Vault.MinimumPasswordLength} characters.");
+            throw new UserError(L.T("The master password needs at least {count} characters.", ("count", Core.Security.Vault.MinimumPasswordLength)));
         }
 
         var header = _store.LoadVault();
@@ -340,7 +344,7 @@ internal sealed class AppCore : IDisposable
         if (header is not null)
         {
             oldVault = Core.Security.Vault.TryUnlock(header, currentPassword ?? "")
-                ?? throw new UserError("The current master password is wrong. Nothing was changed.");
+                ?? throw new UserError(L.T("The current master password is wrong. Nothing was changed."));
         }
 
         var (newHeader, newVault) = Core.Security.Vault.Create(newPassword);
@@ -389,7 +393,7 @@ internal sealed class AppCore : IDisposable
 
         if (!Vault.IsUnlocked && !Unlock(password))
         {
-            throw new UserError("Wrong master password.");
+            throw new UserError(L.T("Wrong master password."));
         }
 
         var snippets = _store.LoadSnippets();
@@ -405,7 +409,7 @@ internal sealed class AppCore : IDisposable
     }
 
     private Vault UnlockedVault() =>
-        Vault.Current ?? throw new UserError(Vault.IsConfigured ? "Unlock your protected snippets first." : "No master password is set yet.");
+        Vault.Current ?? throw new UserError(Vault.IsConfigured ? L.T("Unlock your protected snippets first.") : L.T("No master password is set yet."));
 
     // ---- Settings ---------------------------------------------------------
 
@@ -442,7 +446,7 @@ internal sealed class AppCore : IDisposable
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException)
         {
-            throw new UserError($"Restore failed: {ex.Message}");
+            throw new UserError(L.T("Restore failed: {reason}", ("reason", L.T(ex.Message))));
         }
     }
 
@@ -450,12 +454,47 @@ internal sealed class AppCore : IDisposable
 
     // ---- Breevy -------------------------------------------------------------
 
+    /// <summary>
+    /// Adds snippets from Espanso, Beeftext, a TextExpander CSV export or any CSV file to the library.
+    /// Snippets that already exist with the same abbreviations and text are left out.
+    /// </summary>
+    public ImportSummary ImportFrom(string kind, string path)
+    {
+        ImportedLibrary library;
+        try
+        {
+            library = kind switch
+            {
+                "espanso" => EspansoImporter.Load(path),
+                "beeftext" => BeeftextImporter.Load(path),
+                "textexpander" => CsvImporter.Load(path, "TextExpander", _settings.DefaultTrigger, textExpanderCodes: true),
+                "csv" => CsvImporter.Load(path, Path.GetFileNameWithoutExtension(path), _settings.DefaultTrigger, textExpanderCodes: false),
+                _ => throw new UserError($"Unknown import source '{kind}'."),
+            };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or YamlDotNet.Core.YamlException)
+        {
+            throw new UserError(L.T("Could not read {file}: {reason}", ("file", Path.GetFileName(path)), ("reason", ex.Message)));
+        }
+
+        static string Key(Snippet s) => string.Join('\u0001', s.Abbreviations.Order(StringComparer.Ordinal)) + '\u0002' + s.Expansion;
+        var known = _snippets.Select(Key).ToHashSet(StringComparer.Ordinal);
+        var added = library.Snippets.Where(s => known.Add(Key(s))).ToList();
+        if (added.Count > 0)
+        {
+            _store.BackupSnippets();
+            SaveSnippets([.. _snippets, .. added]);
+        }
+
+        return new ImportSummary(added.Count, library.Snippets.Count - added.Count, library.Skipped, library.Adjusted);
+    }
+
     public int ImportBreevy(bool replaceExisting = true)
     {
         var source = BreevyImporter.DefaultDirectory;
         if (!BreevyImporter.IsAvailable(source))
         {
-            throw new UserError($"No Breevy data found in {source}.");
+            throw new UserError(L.T("No Breevy data found in {folder}.", ("folder", source)));
         }
 
         try
@@ -480,7 +519,7 @@ internal sealed class AppCore : IDisposable
         }
         catch (Exception ex) when (ex is IOException or FormatException or System.Xml.XmlException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
-            throw new UserError($"Breevy import failed: {ex.Message}");
+            throw new UserError(L.T("Breevy import failed: {reason}", ("reason", ex.Message)));
         }
     }
 
@@ -492,11 +531,11 @@ internal sealed class AppCore : IDisposable
         try
         {
             var email = await Sync.CompleteBrowserSignInAsync(link);
-            Notice?.Invoke($"Signed in as {email}. Syncing your snippets…", false);
+            Notice?.Invoke(L.T("Signed in as {email}. Syncing your snippets…", ("email", email)), false);
         }
         catch (Exception ex) when (ex is FreevyApiException or HttpRequestException or TaskCanceledException or System.Security.Cryptography.CryptographicException)
         {
-            Notice?.Invoke(ex is FreevyApiException ? ex.Message : "The sign-in could not be finished. Choose \"Sign in with browser\" and try again.", true);
+            Notice?.Invoke(ex is FreevyApiException ? L.T(ex.Message) : L.T("The sign-in could not be finished. Choose \"Sign in with browser\" and try again."), true);
         }
 
         Changed?.Invoke(Change.Sync);
@@ -539,7 +578,7 @@ internal sealed class AppCore : IDisposable
             catch (Exception ex)
             {
                 // Never let a failed expansion take the app down; tell the user instead.
-                Notice?.Invoke($"Could not expand: {ex.Message}", true);
+                Notice?.Invoke(L.T("Could not expand: {reason}", ("reason", ex.Message)), true);
             }
             finally
             {
@@ -554,12 +593,12 @@ internal sealed class AppCore : IDisposable
         {
             if (!Vault.IsConfigured || RequestUnlock is null)
             {
-                Notice?.Invoke("This snippet is protected, but no master password is set on this computer.", true);
+                Notice?.Invoke(L.T("This snippet is protected, but no master password is set on this computer."), true);
                 return;
             }
 
             var name = expansion.Deleted[..^expansion.Suffix.Length];
-            if (!await RequestUnlock($"“{name}” is protected. Enter your master password to type it."))
+            if (!await RequestUnlock(L.T("“{name}” is protected. Enter your master password to type it.", ("name", name))))
             {
                 return;
             }
@@ -576,7 +615,7 @@ internal sealed class AppCore : IDisposable
         }
         catch (CryptographicException)
         {
-            Notice?.Invoke("This protected snippet could not be decrypted with the current master password.", true);
+            Notice?.Invoke(L.T("This protected snippet could not be decrypted with the current master password."), true);
             return;
         }
 
@@ -648,6 +687,7 @@ internal sealed class AppCore : IDisposable
         {
             _snippets = _store.LoadSnippets();
             _settings = _store.LoadSettings();
+            L.Use(_settings.Language);
             _engine = new ExpansionEngine(_snippets, _settings.Delimiters);
             _output = new OutputSender(_settings.ClipboardThreshold, _settings.LineBreaks);
             Changed?.Invoke(Change.Snippets);
@@ -656,7 +696,7 @@ internal sealed class AppCore : IDisposable
         catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
             // Keep the previous engine; the file may be mid-write or hand-edited into invalid JSON.
-            Notice?.Invoke($"Could not load snippets: {ex.Message}", true);
+            Notice?.Invoke(L.T("Could not load snippets: {reason}", ("reason", ex.Message)), true);
         }
     }
 
@@ -683,7 +723,7 @@ internal sealed class AppCore : IDisposable
         Reload();
         if (outcome.ConflictCopies > 0)
         {
-            Notice?.Invoke($"{outcome.ConflictCopies} snippet(s) were changed on two computers. The other version is kept in the “{SyncEngine.ConflictFolder}” folder.", false);
+            Notice?.Invoke(L.T("{count} snippet(s) were changed on two computers. The other version is kept in the “{folder}” folder.", ("count", outcome.ConflictCopies), ("folder", SyncEngine.ConflictFolder)), false);
         }
     }
 

@@ -110,7 +110,7 @@ internal sealed class AppUpdater : IDisposable
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or InvalidOperationException)
         {
             // Offline or the feed is unreachable: try again at the next interval.
-            LastError = "Could not reach freevy.app. Check your connection and try again.";
+            LastError = L.T("Could not reach freevy.app. Check your connection and try again.");
         }
         finally
         {

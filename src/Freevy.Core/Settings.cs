@@ -69,6 +69,9 @@ public sealed record Settings
     /// <summary>Hours between automatic update checks (1, 6, 24 or 168 in the UI).</summary>
     public int UpdateCheckHours { get; init; } = 6;
 
+    /// <summary>"" follows the Windows display language; otherwise "en", "tr" or "de".</summary>
+    public string Language { get; init; } = "";
+
     /// <summary>Name of the UI theme (see ui/css/themes.css in the app).</summary>
     public string Theme { get; init; } = "freevy";
 

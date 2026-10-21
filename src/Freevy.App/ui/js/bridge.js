@@ -70,7 +70,7 @@ const store = {
     vault: { configured: true, unlocked: false, locksAt: null },
     signedIn: false,
     settings: {
-        expansionEnabled: true, delimiters: ',.?!()<>[]{}:;"/\\\\-\' \\t\\n', clipboardThreshold: 3500, lineBreaks: 'paste', defaultTrigger: 'after', defaultWordStart: true, defaultCase: 'adapt',
+        language: new URLSearchParams(location.search).get('lang') ?? '', expansionEnabled: true, delimiters: ',.?!()<>[]{}:;"/\\\\-\' \\t\\n', clipboardThreshold: 3500, lineBreaks: 'paste', defaultTrigger: 'after', defaultWordStart: true, defaultCase: 'adapt',
         maskFoldersContaining: '', unlockMinutes: 5, lockWhenWindowsLocks: true, autoUpdate: true, updateMode: 'install', updateCheckHours: 6, theme: 'freevy', autostart: false,
         backup: {
             enabled: true, intervalHours: 24, onChange: true, keepCount: 10, localEnabled: true, localDirectory: 'C:\\Users\\you\\AppData\\Roaming\\Freevy\\backups',
@@ -180,6 +180,8 @@ async function demo(method, p) {
         case 'signInWithBrowser': return { fingerprint: '3895 7032' };
         case 'starPromptDone': return null;
         case 'openRepository': return null;
+        case 'openLink': return null;
+        case 'importFrom': await wait(400); return { added: 12, duplicates: 2, skipped: 1, adjusted: 1 };
         case 'installUpdate': await wait(800); return demoState();
         case 'getGitHubStars': return 1234;
         case 'previewExpansion': return { hasMacros: /%\(/.test(p.text), parts: p.text.split(/(%\([^)]*\))/).filter(Boolean).map((p) => (p.startsWith('%(') ? { kind: 'key', value: p.slice(2, -1) } : { kind: 'text', value: p })), cursorBack: 0, inputs: [] };

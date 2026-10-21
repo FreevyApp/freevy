@@ -1,6 +1,7 @@
 // Freevy desktop UI: renders the app state from C# (or the demo backend) and sends user actions back.
 import { call, on, isDemo } from './bridge.js';
 import { $, $$, escapeHtml, icon, number, timeAgo, dialog, confirmDialog, menu, toast } from './ui.js';
+import { t, setLanguage, translateStatic } from './i18n.js';
 
 // Order and names for the theme picker; the colors live in css/themes.css.
 const THEMES = [
@@ -48,7 +49,7 @@ async function run(action, success) {
 
         return result;
     } catch (failure) {
-        toast(failure.message, true);
+        toast(t(failure.message), true);
         return undefined;
     }
 }
@@ -56,7 +57,8 @@ async function run(action, success) {
 const settings = () => state.app.settings;
 const isMasked = (s) => settings().maskFoldersContaining && s.folder.toLowerCase().includes(settings().maskFoldersContaining.toLowerCase());
 const firstLine = (text) => (text ?? '').split(String.fromCharCode(10))[0];
-const plural = (n, word, many = `${word}s`) => `${number.format(n)} ${n === 1 ? word : many}`;
+// The words are translation keys: "snippet" and "snippets" each have an entry per language.
+const plural = (n, word, many = `${word}s`) => `${number.format(n)} ${n === 1 ? t(word) : t(many)}`;
 
 async function refreshState() {
     state.app = await call('getState');
@@ -67,15 +69,15 @@ async function refreshSnippets() {
     state.snippets.sort((a, b) => a.abbreviations[0].localeCompare(b.abbreviations[0], undefined, { sensitivity: 'base' }));
 }
 
-function unlockDialog(reason = 'Enter your master password to use protected snippets.') {
+function unlockDialog(reason = t('Enter your master password to use protected snippets.')) {
     return dialog({
-        title: 'Unlock protected snippets',
+        title: t('Unlock protected snippets'),
         body: escapeHtml(reason),
-        fields: [{ label: 'Master password', type: 'password', autocomplete: 'current-password' }],
-        confirm: 'Unlock',
+        fields: [{ label: t('Master password'), type: 'password', autocomplete: 'current-password' }],
+        confirm: t('Unlock'),
         onSubmit: async ({ fields }) => {
             if (!(await call('unlock', { password: fields[0] }))) {
-                throw new Error('Wrong master password.');
+                throw new Error(t('Wrong master password.'));
             }
         },
     }).then((result) => result !== null);
@@ -126,17 +128,17 @@ function renderChrome() {
     const shown = String(app.version ?? '').split('+')[0];
     version.textContent = /^\d/.test(shown) ? `v${shown}` : shown;
     version.classList.toggle('has-update', Boolean(update));
-    version.title = update ? `Freevy ${update} is available` : 'Version and updates';
+    version.title = update ? t('Freevy {version} is available', { version: update }) : t('Version and updates');
     const expansion = $('#chip-expansion');
     expansion.className = `chip ${app.settings.expansionEnabled ? 'chip--accent' : 'chip--off'}`;
-    $('span:last-child', expansion).textContent = app.settings.expansionEnabled ? 'Expanding' : 'Paused';
+    $('span:last-child', expansion).textContent = app.settings.expansionEnabled ? t('Expanding') : t('Paused');
 
     const sync = $('#chip-sync');
-    $('span', sync).textContent = !app.sync.signedIn ? 'Not syncing'
-        : app.sync.running ? 'Syncing…'
-        : app.sync.error ? 'Sync problem'
-        : app.sync.lastSync ? `Synced ${timeAgo(app.sync.lastSync)}` : 'Sync pending';
-    sync.title = app.sync.error ?? (app.sync.signedIn ? 'Sync now' : 'Sign in to sync');
+    $('span', sync).textContent = !app.sync.signedIn ? t('Not syncing')
+        : app.sync.running ? t('Syncing…')
+        : app.sync.error ? t('Sync problem')
+        : app.sync.lastSync ? t('Synced {time}', { time: timeAgo(app.sync.lastSync) }) : t('Sync pending');
+    sync.title = app.sync.error ?? (app.sync.signedIn ? t('Sync now') : t('Sign in to sync'));
     sync.classList.toggle('chip--warning', Boolean(app.sync.error));
     sync.classList.toggle('is-busy', app.sync.running);
 
@@ -144,11 +146,11 @@ function renderChrome() {
     vault.hidden = !app.vault.configured;
     vault.className = `chip ${app.vault.unlocked ? 'chip--accent' : 'chip--warning'}`;
     $('use', vault).setAttribute('href', app.vault.unlocked ? '#i-unlock' : '#i-lock');
-    $('span', vault).textContent = app.vault.unlocked ? `Unlocked until ${app.vault.locksAt}` : 'Vault locked';
+    $('span', vault).textContent = app.vault.unlocked ? t('Unlocked until {time}', { time: app.vault.locksAt }) : t('Vault locked');
 
     $('#nav-count').textContent = number.format(state.snippets.length);
     $('#saved-today').textContent = plural(app.stats.today.keystrokesSaved, 'keystroke');
-    $('#saved-detail').textContent = `${plural(app.stats.today.expansions, 'expansion')} today · ${number.format(app.stats.totalKeystrokesSaved)} in total`;
+    $('#saved-detail').textContent = t('{expansions} today · {total} in total', { expansions: plural(app.stats.today.expansions, 'expansion'), total: number.format(app.stats.totalKeystrokesSaved) });
 }
 
 function renderFolders() {
@@ -163,13 +165,13 @@ function renderFolders() {
                 <span class="name">${escapeHtml(label)}</span>
                 <span class="count">${locked ? icon('lock') : ''}${number.format(count)}</span>
             </button>
-            ${withMenu ? `<button class="folder-menu-button" data-folder-menu="${escapeHtml(value)}" aria-label="Actions for ${escapeHtml(label)}" aria-haspopup="menu" aria-expanded="false">${icon('more')}</button>` : ''}
+            ${withMenu ? `<button class="folder-menu-button" data-folder-menu="${escapeHtml(value)}" aria-label="${escapeHtml(t('Actions for {name}', { name: label }))}" aria-haspopup="menu" aria-expanded="false">${icon('more')}</button>` : ''}
         </div>`;
     const duplicateCount = duplicates().size;
     if (state.folder === DUPLICATES && duplicateCount === 0) state.folder = null;
-    $('#folders').innerHTML = row(ALL, 'All snippets', state.snippets.length, false, false)
-        + (duplicateCount ? row(DUPLICATES, 'Duplicates', duplicateCount, false, false) : '')
-        + (counts.get('') ? row('', 'No folder', counts.get(''), false, false) : '')
+    $('#folders').innerHTML = row(ALL, t('All snippets'), state.snippets.length, false, false)
+        + (duplicateCount ? row(DUPLICATES, t('Duplicates'), duplicateCount, false, false) : '')
+        + (counts.get('') ? row('', t('No folder'), counts.get(''), false, false) : '')
         + folders.map((f) => row(f, f, counts.get(f), state.snippets.some((s) => s.folder === f && s.protected), true)).join('');
     // Set through the DOM: the page's CSP forbids inline style attributes.
     $$('.folder-item .dot[data-color]').forEach((dot) => {
@@ -187,36 +189,36 @@ function folderMenu(trigger, folder) {
     // Only the actions that would change something; a mixed folder gets both, with counts.
     const protection = [];
     if (open > 0) {
-        protection.push({ label: locked > 0 ? `Protect ${number.format(open)} more` : 'Protect all snippets', icon: 'lock', action: () => protectFolder(folder, true) });
+        protection.push({ label: locked > 0 ? t('Protect {count} more', { count: number.format(open) }) : t('Protect all snippets'), icon: 'lock', action: () => protectFolder(folder, true) });
     }
     if (locked > 0) {
-        protection.push({ label: open > 0 ? `Remove protection (${number.format(locked)})` : 'Remove protection', icon: 'unlock', action: () => protectFolder(folder, false) });
+        protection.push({ label: open > 0 ? t('Remove protection ({count})', { count: number.format(locked) }) : t('Remove protection'), icon: 'unlock', action: () => protectFolder(folder, false) });
     }
     menu(trigger, [
-        { label: 'Rename folder…', icon: 'pencil', action: () => renameFolder(folder) },
+        { label: t('Rename folder…'), icon: 'pencil', action: () => renameFolder(folder) },
         ...protection,
         'separator',
-        { label: `Delete folder (${count})…`, icon: 'trash', danger: true, action: () => deleteFolder(folder, count) },
+        { label: t('Delete folder ({count})…', { count }), icon: 'trash', danger: true, action: () => deleteFolder(folder, count) },
     ]);
 }
 
 async function renameFolder(folder) {
     const result = await dialog({
-        title: 'Rename folder',
-        body: 'Use / for subfolders, for example Games/WoW.',
-        fields: [{ label: 'Folder name', value: folder }],
-        confirm: 'Rename',
+        title: t('Rename folder'),
+        body: t('Use / for subfolders, for example Games/WoW.'),
+        fields: [{ label: t('Folder name'), value: folder }],
+        confirm: t('Rename'),
         onSubmit: ({ fields }) => call('renameFolder', { folder, name: fields[0] }),
     });
     if (result) {
         if (state.folder === folder) state.folder = result.fields[0].trim().replace(/^\/+|\/+$/g, '');
-        toast('Folder renamed');
+        toast(t('Folder renamed'));
     }
 }
 
 async function protectFolder(folder, protect) {
     if (!state.app.vault.configured) {
-        toast('Set a master password first, on the Master password page.', true);
+        toast(t('Set a master password first, on the Master password page.'), true);
         return;
     }
 
@@ -224,13 +226,13 @@ async function protectFolder(folder, protect) {
         return;
     }
 
-    await run(() => call('protectFolder', { folder, protect }), (n) => `${plural(n, 'snippet')} ${protect ? 'protected' : 'unprotected'}`);
+    await run(() => call('protectFolder', { folder, protect }), (n) => t(protect ? '{count} protected' : '{count} unprotected', { count: plural(n, 'snippet') }));
 }
 
 async function deleteFolder(folder, count) {
-    if (await confirmDialog({ title: `Delete “${folder}”?`, body: `This deletes the folder and its ${plural(count, 'snippet')}. Backups keep older copies.`, confirm: 'Delete folder', danger: true })) {
+    if (await confirmDialog({ title: t('Delete “{name}”?', { name: folder }), body: t('This deletes the folder and its {count}. Backups keep older copies.', { count: plural(count, 'snippet') }), confirm: t('Delete folder'), danger: true })) {
         if (state.folder === folder) state.folder = null;
-        await run(() => call('deleteFolder', { folder }), 'Folder deleted');
+        await run(() => call('deleteFolder', { folder }), t('Folder deleted'));
     }
 }
 
@@ -247,8 +249,8 @@ function folderOptions(text) {
         // Names that start with the text first, then the rest alphabetically.
         .sort((a, b) => (b.toLowerCase().startsWith(lower) - a.toLowerCase().startsWith(lower)) || a.localeCompare(b))
         .map((f) => ({ value: f, label: f, count: counts.get(f) }));
-    if (!query) options.unshift({ value: '', label: 'No folder', none: true });
-    else if (![...counts.keys()].some((f) => f.toLowerCase() === lower)) options.push({ value: query, label: `Create folder “${query}”`, create: true });
+    if (!query) options.unshift({ value: '', label: t('No folder'), none: true });
+    else if (![...counts.keys()].some((f) => f.toLowerCase() === lower)) options.push({ value: query, label: t('Create folder “{name}”', { name: query }), create: true });
     return options;
 }
 
@@ -373,7 +375,7 @@ function duplicateNote(s) {
     const shared = duplicates().get(s.id);
     if (!shared) return '';
     const others = new Set(state.snippets.filter((x) => x.id !== s.id && x.abbreviations.some((a) => shared.includes(a.toLowerCase()))).map((x) => x.id)).size;
-    return `${shared.map((a) => `“${a}”`).join(', ')} is also used by ${plural(others, 'other snippet')}. Only one of them can expand.`;
+    return t('{abbreviations} is also used by {count}. Only one of them can expand.', { abbreviations: shared.map((a) => `“${a}”`).join(', '), count: plural(others, 'other snippet') });
 }
 
 /**
@@ -432,8 +434,8 @@ function renderList() {
     if (state.visible.length === 0) {
         spacer.style.height = 'auto';
         spacer.innerHTML = state.snippets.length === 0
-            ? `<div class="empty">${icon('keyboard')}<strong>No snippets yet</strong><span>Create your first one, or import your Breevy library in Settings.</span></div>`
-            : `<div class="empty">${icon('search')}<strong>Nothing matches${state.query ? ` “${escapeHtml(state.query)}”` : ' here'}</strong><span>Try another word or folder, or create a new snippet.</span></div>`;
+            ? `<div class="empty">${icon('keyboard')}<strong>${t('No snippets yet')}</strong><span>${t('Create your first one, or import your Breevy library in Settings.')}</span></div>`
+            : `<div class="empty">${icon('search')}<strong>${state.query ? escapeHtml(t('Nothing matches “{query}”', { query: state.query })) : t('Nothing matches here')}</strong><span>${t('Try another word or folder, or create a new snippet.')}</span></div>`;
         return;
     }
 
@@ -443,9 +445,9 @@ function renderList() {
     let html = '';
     for (let i = first; i < last; i++) {
         const s = state.visible[i];
-        const primary = s.protected ? `<span class="locked">${icon('lock')}Protected</span>`
-            : isMasked(s) ? '<span class="masked">Hidden</span>'
-            : escapeHtml((s.expansion ?? '').split('\n')[0] || '(empty)');
+        const primary = s.protected ? `<span class="locked">${icon('lock')}${t('Protected')}</span>`
+            : isMasked(s) ? `<span class="masked">${t('Hidden')}</span>`
+            : escapeHtml((s.expansion ?? '').split('\n')[0] || t('(empty)'));
         const checked = state.editMode && state.checked.has(s.id);
         const warning = duplicateNote(s);
         html += `
@@ -455,9 +457,9 @@ function renderList() {
                 ${warning ? `<span class="dup-warn" title="${escapeHtml(warning)}" aria-label="${escapeHtml(warning)}">${icon('alert')}</span>` : ''}
                 <span class="snippet-text">
                     <span class="primary">${primary}</span>
-                    <span class="secondary">${escapeHtml(s.description || s.folder || 'No folder')}${s.abbreviations.length > 1 ? ` · +${s.abbreviations.length - 1}` : ''}</span>
+                    <span class="secondary">${escapeHtml(s.description || s.folder || t('No folder'))}${s.abbreviations.length > 1 ? ` · +${s.abbreviations.length - 1}` : ''}</span>
                 </span>
-                ${state.editMode ? `<span class="row-open${s.id === state.selectedId ? ' is-open' : ''}" title="Open this snippet">${icon('eye')}</span>` : ''}
+                ${state.editMode ? `<span class="row-open${s.id === state.selectedId ? ' is-open' : ''}" title="${t('Open this snippet')}">${icon('eye')}</span>` : ''}
             </button>`;
     }
 
@@ -470,20 +472,20 @@ function renderListFooter() {
     if (!state.editMode) {
         footer.innerHTML = `<span>${plural(state.visible.length, 'snippet')}</span>
             <span class="footer-actions">
-                <button class="btn btn--primary btn--small" id="new-snippet">${icon('plus')}New snippet</button>
+                <button class="btn btn--primary btn--small" id="new-snippet">${icon('plus')}${t('New snippet')}</button>
             </span>`;
         return;
     }
 
     const count = state.checked.size;
     const allVisible = state.visible.length > 0 && state.visible.every((s) => state.checked.has(s.id));
-    footer.innerHTML = `<span>${count ? `${number.format(count)} selected` : 'Select snippets'}</span>
+    footer.innerHTML = `<span>${count ? t('{count} selected', { count: number.format(count) }) : t('Select snippets')}</span>
         <span class="footer-actions">
-            ${state.folder === DUPLICATES ? '<button class="btn btn--ghost btn--small" data-action="select-extra">Select extra copies</button>' : ''}
-            <button class="btn btn--ghost btn--small" data-action="select-all">${allVisible ? 'Select none' : 'Select all'}</button>
-            <button class="btn btn--small" data-action="move-checked" ${count ? '' : 'disabled'}>${icon('folder')}Move…</button>
-            <button class="btn btn--small btn--danger-solid" data-action="delete-checked" ${count ? '' : 'disabled'}>${icon('trash')}Delete${count ? ` (${number.format(count)})` : ''}</button>
-            <button class="btn btn--small" data-action="edit-done">Done</button>
+            ${state.folder === DUPLICATES ? `<button class="btn btn--ghost btn--small" data-action="select-extra">${t('Select extra copies')}</button>` : ''}
+            <button class="btn btn--ghost btn--small" data-action="select-all">${allVisible ? t('Select none') : t('Select all')}</button>
+            <button class="btn btn--small" data-action="move-checked" ${count ? '' : 'disabled'}>${icon('folder')}${t('Move…')}</button>
+            <button class="btn btn--small btn--danger-solid" data-action="delete-checked" ${count ? '' : 'disabled'}>${icon('trash')}${t('Delete')}${count ? ` (${number.format(count)})` : ''}</button>
+            <button class="btn btn--small" data-action="edit-done">${t('Done')}</button>
         </span>`;
 }
 
@@ -524,21 +526,31 @@ function selectRange(id) {
     renderList();
 }
 
+async function importFrom(kind, label) {
+    const result = await run(() => call('importFrom', { kind }));
+    if (!result) return;
+    const parts = [t('Added {count} from {source}', { count: plural(result.added, 'snippet'), source: label })];
+    if (result.duplicates) parts.push(t('{count} already here', { count: number.format(result.duplicates) }));
+    if (result.skipped) parts.push(t('{count} skipped (regex, images or forms)', { count: number.format(result.skipped) }));
+    if (result.adjusted) parts.push(t('{count} with placeholders to check', { count: number.format(result.adjusted) }));
+    toast(parts.join(' · '));
+}
+
 async function moveChecked() {
     const ids = [...state.checked];
     if (!ids.length) return;
     const folders = [...new Set(state.snippets.map((s) => s.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     const result = await dialog({
-        title: `Move ${plural(ids.length, 'snippet')}`,
-        body: 'Pick a folder or type a new name. Leave it empty for no folder.',
-        fields: [{ label: 'Folder', suggestions: folders, required: false, placeholder: 'Folder name' }],
-        confirm: 'Move',
+        title: t('Move {count}', { count: plural(ids.length, 'snippet') }),
+        body: t('Pick a folder or type a new name. Leave it empty for no folder.'),
+        fields: [{ label: t('Folder'), suggestions: folders, required: false, placeholder: t('Folder name') }],
+        confirm: t('Move'),
     });
     if (!result) return;
     const folder = result.fields[0].trim().replace(/^\/+|\/+$/g, '');
     const moved = await run(() => call('moveSnippets', { ids, folder }));
     if (moved === undefined) return;
-    toast(moved ? `Moved ${plural(moved, 'snippet')} to ${folder || 'No folder'}` : 'They were already there');
+    toast(moved ? t('Moved {count} to {folder}', { count: plural(moved, 'snippet'), folder: folder || t('No folder') }) : t('They were already there'));
     setEditMode(false);
 }
 
@@ -546,14 +558,14 @@ async function deleteChecked() {
     const ids = [...state.checked];
     if (!ids.length) return;
     const locked = state.snippets.filter((s) => ids.includes(s.id) && s.protected).length;
-    const body = `${locked ? `${plural(locked, 'protected snippet')} included. ` : ''}Backups keep older copies.`;
-    if (!(await confirmDialog({ title: `Delete ${plural(ids.length, 'snippet')}?`, body, confirm: 'Delete', danger: true }))) return;
+    const body = `${locked ? `${t('{count} included.', { count: plural(locked, 'protected snippet') })} ` : ''}${t('Backups keep older copies.')}`;
+    if (!(await confirmDialog({ title: t('Delete {count}?', { count: plural(ids.length, 'snippet') }), body, confirm: t('Delete'), danger: true }))) return;
     if (ids.includes(state.selectedId)) {
         state.selectedId = null;
         state.draft = null;
         state.original = null;
     }
-    const done = await run(() => call('deleteSnippets', { ids }), `${plural(ids.length, 'snippet')} deleted`);
+    const done = await run(() => call('deleteSnippets', { ids }), t('{count} deleted', { count: plural(ids.length, 'snippet') }));
     if (done !== undefined) {
         state.checked.clear();
         await refreshSnippets();
@@ -578,7 +590,7 @@ const isDirty = () => state.draft !== null && JSON.stringify(state.draft) !== st
 
 async function confirmLeave() {
     if (!isDirty()) return true;
-    return confirmDialog({ title: 'Discard changes?', body: 'This snippet has unsaved changes.', confirm: 'Discard', cancel: 'Keep editing', danger: true });
+    return confirmDialog({ title: t('Discard changes?'), body: t('This snippet has unsaved changes.'), confirm: t('Discard'), cancel: t('Keep editing'), danger: true });
 }
 
 async function select(id) {
@@ -611,7 +623,7 @@ async function newSnippet() {
 const LINE_BREAK_OPTIONS = [['default', 'Like in Settings'], ['paste', 'Paste the text'], ['shiftEnter', 'Type Shift+Enter'], ['enter', 'Type Enter']];
 
 // "Like in Settings (Paste the text)": names what the setting currently is.
-const defaultLineBreakLabel = () => `Like in Settings (${LINE_BREAK_OPTIONS.find(([v]) => v === settings().lineBreaks)?.[1] ?? 'Paste the text'})`;
+const defaultLineBreakLabel = () => t('Like in Settings ({mode})', { mode: t(LINE_BREAK_OPTIONS.find(([v]) => v === settings().lineBreaks)?.[1] ?? 'Paste the text') });
 
 function segmented(name, key, value, options) {
     return `<div class="segmented" role="radiogroup" aria-label="${name}" data-segment="${key}">${options.map(([v, label]) =>
@@ -623,7 +635,7 @@ function renderEditor() {
     const editor = $('#editor');
     if (!d) {
         renderSaveBar();
-        editor.innerHTML = `<div class="empty">${icon('keyboard')}<strong>Pick a snippet</strong><span>Or create a new one with <kbd>Ctrl N</kbd>.</span></div>`;
+        editor.innerHTML = `<div class="empty">${icon('keyboard')}<strong>${t('Pick a snippet')}</strong><span>${t('Or create a new one with {key}.', { key: '<kbd>Ctrl N</kbd>' })}</span></div>`;
         return;
     }
 
@@ -632,38 +644,38 @@ function renderEditor() {
     editor.innerHTML = `
         <div class="editor-card">
             <div class="editor-head">
-                <div><div class="eyebrow">${escapeHtml(d.folder || 'No folder')}</div><h1 class="editor-title">${escapeHtml(d.abbreviations[0] ?? 'New snippet')}</h1></div>
+                <div><div class="eyebrow">${escapeHtml(d.folder || t('No folder'))}</div><h1 class="editor-title">${escapeHtml(d.abbreviations[0] ?? t('New snippet'))}</h1></div>
                 <div class="editor-actions">
-                    ${d.id ? `<button class="btn btn--ghost" data-action="duplicate">${icon('copy')}Duplicate</button><button class="btn btn--ghost btn--danger" data-action="delete">${icon('trash')}Delete</button>` : ''}
+                    ${d.id ? `<button class="btn btn--ghost" data-action="duplicate">${icon('copy')}${t('Duplicate')}</button><button class="btn btn--ghost btn--danger" data-action="delete">${icon('trash')}${t('Delete')}</button>` : ''}
                 </div>
             </div>
             <div class="fields">
-                <label class="field"><span>Abbreviations</span>
-                    <div class="tags">${d.abbreviations.map((a, i) => `<span class="tag">${escapeHtml(a)}<button type="button" data-remove-tag="${i}" aria-label="Remove ${escapeHtml(a)}">${icon('x')}</button></span>`).join('')}<input data-field="tag" placeholder="${d.abbreviations.length ? 'Add…' : 'Type an abbreviation, press Enter'}" aria-label="Add abbreviation" spellcheck="false"></div>
+                <label class="field"><span>${t('Abbreviations')}</span>
+                    <div class="tags">${d.abbreviations.map((a, i) => `<span class="tag">${escapeHtml(a)}<button type="button" data-remove-tag="${i}" aria-label="${escapeHtml(t('Remove {name}', { name: a }))}">${icon('x')}</button></span>`).join('')}<input data-field="tag" placeholder="${d.abbreviations.length ? t('Add…') : t('Type an abbreviation, press Enter')}" aria-label="${t('Add abbreviation')}" spellcheck="false"></div>
                 </label>
-                <label class="field"><span>Description</span><input class="input" data-field="description" value="${escapeHtml(d.description)}" placeholder="What is this for?"></label>
-                <div class="field field--wide"><div class="field-head"><span>Expansion</span>${locked ? '' : `<button type="button" class="btn btn--ghost btn--small" data-action="insert-macro" aria-haspopup="menu" aria-expanded="false">${icon('plus')}Insert</button>`}</div>
+                <label class="field"><span>${t('Description')}</span><input class="input" data-field="description" value="${escapeHtml(d.description)}" placeholder="${t('What is this for?')}"></label>
+                <div class="field field--wide"><div class="field-head"><span>${t('Expansion')}</span>${locked ? '' : `<button type="button" class="btn btn--ghost btn--small" data-action="insert-macro" aria-haspopup="menu" aria-expanded="false">${icon('plus')}${t('Insert')}</button>`}</div>
                     ${locked
-                        ? `<div class="empty">${icon('lock')}<strong>Protected snippet</strong><span>Unlock with your master password to view or edit it.</span><button type="button" class="btn btn--primary btn--small" data-action="unlock">Unlock</button></div>`
-                        : `<textarea class="textarea" data-field="expansion" spellcheck="false" placeholder="The text Freevy types for you">${escapeHtml(d.expansion ?? '')}</textarea>`}
+                        ? `<div class="empty">${icon('lock')}<strong>${t('Protected snippet')}</strong><span>${t('Unlock with your master password to view or edit it.')}</span><button type="button" class="btn btn--primary btn--small" data-action="unlock">${t('Unlock')}</button></div>`
+                        : `<textarea class="textarea" data-field="expansion" spellcheck="false" placeholder="${t('The text Freevy types for you')}">${escapeHtml(d.expansion ?? '')}</textarea>`}
                 </div>
-                <div class="field"><span id="folder-label">Folder</span>
+                <div class="field"><span id="folder-label">${t('Folder')}</span>
                     <div class="combo">
-                        <input class="input" data-field="folder" data-combo="folder" role="combobox" aria-labelledby="folder-label" aria-expanded="false" aria-autocomplete="list" aria-controls="folder-options" autocomplete="off" spellcheck="false" value="${escapeHtml(d.folder)}" placeholder="No folder">
+                        <input class="input" data-field="folder" data-combo="folder" role="combobox" aria-labelledby="folder-label" aria-expanded="false" aria-autocomplete="list" aria-controls="folder-options" autocomplete="off" spellcheck="false" value="${escapeHtml(d.folder)}" placeholder="${t('No folder')}">
                         <span class="combo-caret" aria-hidden="true">${icon('folder')}</span>
                         <div class="combo-list" id="folder-options" role="listbox" hidden></div>
                     </div>
                 </div>
             </div>
             <div class="options">
-                <div class="option-card"><span class="label">Expand</span>${segmented('Expand', 'trigger', d.trigger, [['after', 'After space'], ['instant', 'Instantly']])}
-                    <label class="check"><input type="checkbox" data-field="wordStart" ${d.wordStart ? 'checked' : ''}><span>Only at the start of a word</span></label></div>
-                <div class="option-card"><span class="label">Case</span>${segmented('Case', 'case', d.case, [['exact', 'Exact'], ['ignore', 'Ignore'], ['adapt', 'Adapt']])}</div>
-                <div class="option-card"><span class="label">Line breaks</span>
-                    <select class="input" data-field="lineBreaks" aria-label="Line breaks">${LINE_BREAK_OPTIONS.map(([v, label]) => `<option value="${v}" ${v === (d.lineBreaks ?? 'default') ? 'selected' : ''}>${v === 'default' ? defaultLineBreakLabel() : label}</option>`).join('')}</select></div>
-                <div class="option-card option-card--row"><div><div class="label">Protected</div><div class="hint">Needs master password</div></div><button type="button" class="switch" role="switch" data-field="protected" aria-checked="${d.protected}" aria-label="Protected"></button></div>
+                <div class="option-card"><span class="label">${t('Expand')}</span>${segmented(t('Expand'), 'trigger', d.trigger, [['after', t('After space')], ['instant', t('Instantly')]])}
+                    <label class="check"><input type="checkbox" data-field="wordStart" ${d.wordStart ? 'checked' : ''}><span>${t('Only at the start of a word')}</span></label></div>
+                <div class="option-card"><span class="label">${t('Case')}</span>${segmented(t('Case'), 'case', d.case, [['exact', t('Exact')], ['ignore', t('Ignore')], ['adapt', t('Adapt')]])}</div>
+                <div class="option-card"><span class="label">${t('Line breaks')}</span>
+                    <select class="input" data-field="lineBreaks" aria-label="${t('Line breaks')}">${LINE_BREAK_OPTIONS.map(([v, label]) => `<option value="${v}" ${v === (d.lineBreaks ?? 'default') ? 'selected' : ''}>${v === 'default' ? defaultLineBreakLabel() : t(label)}</option>`).join('')}</select></div>
+                <div class="option-card option-card--row"><div><div class="label">${t('Protected')}</div><div class="hint">${t('Needs master password')}</div></div><button type="button" class="switch" role="switch" data-field="protected" aria-checked="${d.protected}" aria-label="${t('Protected')}"></button></div>
             </div>
-            <div class="preview"><div class="label">Preview</div><p id="preview-line"></p><div class="macro-preview" id="macro-preview" hidden></div></div>
+            <div class="preview"><div class="label">${t('Preview')}</div><p id="preview-line"></p><div class="macro-preview" id="macro-preview" hidden></div></div>
         </div>`;
     updateEditorChrome();
 }
@@ -699,8 +711,8 @@ function updateEditorChrome() {
     const d = state.draft;
     if (!d) return;
     renderSaveBar();
-    const caseNote = d.case === 'adapt' ? ' Type it in capitals to get capitals.' : '';
-    $('#preview-line').innerHTML = `You type <kbd>${escapeHtml(d.abbreviations[0] ?? '…')}${d.trigger === 'after' ? '␣' : ''}</kbd> and Freevy types the expansion.${caseNote}`;
+    const caseNote = d.case === 'adapt' ? ` ${t('Type it in capitals to get capitals.')}` : '';
+    $('#preview-line').innerHTML = t('You type {abbreviation} and Freevy types the expansion.', { abbreviation: `<kbd>${escapeHtml(d.abbreviations[0] ?? '…')}${d.trigger === 'after' ? '␣' : ''}</kbd>` }) + caseNote;
     scheduleMacroPreview();
 }
 
@@ -729,9 +741,9 @@ async function renderMacroPreview() {
         ? escapeHtml(p.value).replace(/\n/g, '<span class="macro-chip">⏎</span><br>')
         : `<span class="macro-chip">${escapeHtml(p.value)}</span>`).join('');
     const notes = [];
-    if (preview.inputs.length) notes.push(`Asks for ${preview.inputs.map((i) => `“${escapeHtml(i)}”`).join(', ')} first.`);
-    if (preview.cursorBack) notes.push(`Then moves the cursor back ${plural(preview.cursorBack, 'character')}.`);
-    box.innerHTML = `<div class="macro-output">${body || '<span class="hint">(nothing typed)</span>'}</div>${notes.length ? `<p class="hint">${notes.join(' ')}</p>` : ''}`;
+    if (preview.inputs.length) notes.push(t('Asks for {fields} first.', { fields: preview.inputs.map((i) => `“${escapeHtml(i)}”`).join(', ') }));
+    if (preview.cursorBack) notes.push(t('Then moves the cursor back {count}.', { count: plural(preview.cursorBack, 'character') }));
+    box.innerHTML = `<div class="macro-output">${body || `<span class="hint">${t('(nothing typed)')}</span>`}</div>${notes.length ? `<p class="hint">${notes.join(' ')}</p>` : ''}`;
     box.hidden = false;
 }
 
@@ -761,55 +773,55 @@ const DATE_PRESETS = [
 ];
 
 async function insertMacro(trigger) {
-    const ask = async (title, fields, body = '') => (await dialog({ title, body, fields, confirm: 'Insert' }))?.fields;
+    const ask = async (title, fields, body = '') => (await dialog({ title, body, fields, confirm: t('Insert') }))?.fields;
     menu(trigger, [
-        { label: 'Line break without sending (Shift+Enter)', icon: 'keyboard', action: () => insertIntoExpansion('%(Key Shift+Enter)') },
-        { label: 'Cursor position', icon: 'pencil', action: () => insertIntoExpansion('%(cursor)') },
-        { label: 'Clipboard text', icon: 'copy', action: () => insertIntoExpansion('%(clipboard)') },
+        { label: t('Line break without sending (Shift+Enter)'), icon: 'keyboard', action: () => insertIntoExpansion('%(Key Shift+Enter)') },
+        { label: t('Cursor position'), icon: 'pencil', action: () => insertIntoExpansion('%(cursor)') },
+        { label: t('Clipboard text'), icon: 'copy', action: () => insertIntoExpansion('%(clipboard)') },
         'separator',
-        { label: 'Fill-in field…', icon: 'plus', action: async () => {
-            const v = await ask('Fill-in field', [{ label: 'Name (fields with the same name are asked once)', value: '', required: false, placeholder: 'e.g. name' }], 'Freevy asks for this text in a small window before typing the snippet.');
+        { label: t('Fill-in field…'), icon: 'plus', action: async () => {
+            const v = await ask(t('Fill-in field'), [{ label: t('Name (fields with the same name are asked once)'), value: '', required: false, placeholder: t('e.g. name') }], t('Freevy asks for this text in a small window before typing the snippet.'));
             if (v) insertIntoExpansion(v[0].trim() ? `%(Input ${v[0].trim()})` : '%(Input)');
         } },
-        { label: 'Date or time…', icon: 'history', action: async () => {
-            const v = await ask('Date or time', [{ label: 'Format', value: DATE_PRESETS[0][0], options: DATE_PRESETS.map(([value, label]) => ({ value, label: `${label}: ${value}` })) }]);
+        { label: t('Date or time…'), icon: 'history', action: async () => {
+            const v = await ask(t('Date or time'), [{ label: t('Format'), value: DATE_PRESETS[0][0], options: DATE_PRESETS.map(([value, label]) => ({ value, label: `${t(label)}: ${value}` })) }]);
             if (v) insertIntoExpansion(v[0]);
         } },
-        { label: 'Shift the date…', icon: 'refresh', action: async () => {
-            const v = await ask('Shift the date', [
-                { label: 'Direction', value: 'Add', options: [{ value: 'Add', label: 'Later (add)' }, { value: 'Subtract', label: 'Earlier (subtract)' }] },
-                { label: 'Amount', value: '1', type: 'number' },
-                { label: 'Unit', value: 'Days', options: ['Days', 'Months', 'Years', 'Hours', 'Minutes', 'Seconds'].map((u) => ({ value: u, label: u.toLowerCase() })) },
-            ], 'Applies to the date and time macros after it, for example a due date in 14 days.');
+        { label: t('Shift the date…'), icon: 'refresh', action: async () => {
+            const v = await ask(t('Shift the date'), [
+                { label: t('Direction'), value: 'Add', options: [{ value: 'Add', label: t('Later (add)') }, { value: 'Subtract', label: t('Earlier (subtract)') }] },
+                { label: t('Amount'), value: '1', type: 'number' },
+                { label: t('Unit'), value: 'Days', options: ['Days', 'Months', 'Years', 'Hours', 'Minutes', 'Seconds'].map((u) => ({ value: u, label: t(u.toLowerCase()) })) },
+            ], t('Applies to the date and time macros after it, for example a due date in 14 days.'));
             if (v) insertIntoExpansion(`%(${v[0]}${v[2]} ${Math.max(0, parseInt(v[1], 10) || 0)})`);
         } },
         'separator',
-        { label: 'Key press…', icon: 'keyboard', action: async () => {
+        { label: t('Key press…'), icon: 'keyboard', action: async () => {
             const keys = ['Enter', 'Tab', 'Escape', 'Backspace', 'Delete', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right', 'Space', 'Insert', ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`), ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
             const result = await dialog({
-                title: 'Key press', confirm: 'Insert',
-                fields: [{ label: 'Key', value: 'Enter', options: keys.map((k) => ({ value: k, label: k })) }],
-                checks: [{ label: 'Ctrl' }, { label: 'Shift' }, { label: 'Alt' }, { label: 'Windows key' }],
+                title: t('Key press'), confirm: t('Insert'),
+                fields: [{ label: t('Key'), value: 'Enter', options: keys.map((k) => ({ value: k, label: k })) }],
+                checks: [{ label: 'Ctrl' }, { label: 'Shift' }, { label: 'Alt' }, { label: t('Windows key') }],
             });
             if (!result) return;
             const mods = ['Ctrl', 'Shift', 'Alt', 'Win'].filter((_, i) => result.checks[i]);
             insertIntoExpansion(`%(Key ${[...mods, result.fields[0]].join('+')})`);
         } },
-        { label: 'Bold, italic or underline…', icon: 'pencil', action: async () => {
-            const v = await ask('Formatting', [{ label: 'Toggle', value: '%(B)', options: [{ value: '%(B)', label: 'Bold (Ctrl+B)' }, { value: '%(I)', label: 'Italic (Ctrl+I)' }, { value: '%(U)', label: 'Underline (Ctrl+U)' }] }], 'Switches the formatting on; insert it again where it should end.');
+        { label: t('Bold, italic or underline…'), icon: 'pencil', action: async () => {
+            const v = await ask(t('Formatting'), [{ label: t('Toggle'), value: '%(B)', options: [{ value: '%(B)', label: t('Bold (Ctrl+B)') }, { value: '%(I)', label: t('Italic (Ctrl+I)') }, { value: '%(U)', label: t('Underline (Ctrl+U)') }] }], t('Switches the formatting on; insert it again where it should end.'));
             if (v) insertIntoExpansion(v[0]);
         } },
-        { label: 'Wait…', icon: 'history', action: async () => {
-            const v = await ask('Wait', [{ label: 'Milliseconds', value: '500', type: 'number' }], 'Pauses typing, for apps that need a moment, for example after opening a menu.');
+        { label: t('Wait…'), icon: 'history', action: async () => {
+            const v = await ask(t('Wait'), [{ label: t('Milliseconds'), value: '500', type: 'number' }], t('Pauses typing, for apps that need a moment, for example after opening a menu.'));
             if (v) insertIntoExpansion(`%(Delay ${Math.min(60000, Math.max(0, parseInt(v[0], 10) || 0))}ms)`);
         } },
         'separator',
-        { label: 'Another snippet…', icon: 'copy', action: async () => {
-            const v = await ask('Another snippet', [{ label: 'Its abbreviation', value: '', placeholder: 'e.g. ;sig' }], 'Types that snippet’s text here. Protected snippets are left out.');
+        { label: t('Another snippet…'), icon: 'copy', action: async () => {
+            const v = await ask(t('Another snippet'), [{ label: t('Its abbreviation'), value: '', placeholder: t('e.g. ;sig') }], t('Types that snippet’s text here. Protected snippets are left out.'));
             if (v) insertIntoExpansion(`%(Abbrev ${v[0].trim()})`);
         } },
-        { label: 'Open a program, file or website…', icon: 'external', action: async () => {
-            const v = await ask('Open', [{ label: 'Program, file, folder or web address', value: '', placeholder: 'C:\\Tools\\app.exe or https://…' }, { label: 'Arguments (optional)', value: '', required: false }]);
+        { label: t('Open a program, file or website…'), icon: 'external', action: async () => {
+            const v = await ask(t('Open'), [{ label: t('Program, file, folder or web address'), value: '', placeholder: t('C:\\Tools\\app.exe or https://…') }, { label: t('Arguments (optional)'), value: '', required: false }]);
             if (v) insertIntoExpansion(`%(Launch "${v[0].trim()}"${v[1].trim() ? ` ${v[1].trim()}` : ''})`);
         } },
     ]);
@@ -831,12 +843,12 @@ async function save() {
     const tagInput = $('#editor .tags input');
     if (tagInput?.value.trim()) addTag(tagInput);
     if (d.protected && d.expansion !== null && !state.app.vault.configured) {
-        toast('Set a master password first, on the Master password page.', true);
+        toast(t('Set a master password first, on the Master password page.'), true);
         return;
     }
 
     const needsKey = (d.protected && d.expansion !== null) || (!d.protected && d.expansion === null);
-    if (needsKey && !state.app.vault.unlocked && !(await unlockDialog('Saving this snippet needs your master password.'))) return;
+    if (needsKey && !state.app.vault.unlocked && !(await unlockDialog(t('Saving this snippet needs your master password.')))) return;
 
     const saved = await run(() => call('saveSnippet', d));
     if (!saved) return;
@@ -846,7 +858,7 @@ async function save() {
     await refreshSnippets();
     renderAllSnippetParts();
     scrollToSelected();
-    toast('Snippet saved');
+    toast(t('Snippet saved'));
 }
 
 async function duplicate() {
@@ -857,17 +869,17 @@ async function duplicate() {
     }
 
     state.selectedId = null;
-    state.draft = { ...structuredClone(d), id: null, description: d.description ? `${d.description} (copy)` : 'Copy' };
+    state.draft = { ...structuredClone(d), id: null, description: d.description ? t('{name} (copy)', { name: d.description }) : t('Copy') };
     state.original = '';
     renderList();
     renderEditor();
-    toast('Duplicated. Change it, then save.');
+    toast(t('Duplicated. Change it, then save.'));
 }
 
 async function remove() {
     const d = state.draft;
-    if (await confirmDialog({ title: `Delete “${d.abbreviations[0]}”?`, body: 'Backups keep older copies.', confirm: 'Delete', danger: true })) {
-        await run(() => call('deleteSnippets', { ids: [d.id] }), 'Snippet deleted');
+    if (await confirmDialog({ title: t('Delete “{name}”?', { name: d.abbreviations[0] }), body: t('Backups keep older copies.'), confirm: t('Delete'), danger: true })) {
+        await run(() => call('deleteSnippets', { ids: [d.id] }), t('Snippet deleted'));
         state.draft = null;
         state.selectedId = null;
         await refreshSnippets();
@@ -888,88 +900,94 @@ const row = (title, hint, control) => `<div class="row"><div class="text"><stron
 const toggle = (key, value, label) => `<button type="button" class="switch" role="switch" data-setting="${key}" aria-checked="${value}" aria-label="${escapeHtml(label)}"></button>`;
 const numberInput = (key, value, min, max) => `<input class="input input--narrow" type="number" data-setting="${key}" value="${value}" min="${min}" max="${max}">`;
 
+// "Backed up to Local folder, Synced folder." comes from Core in English; translate its parts.
+function backupResult(text) {
+    const done = /^Backed up to (.+)\.$/.exec(text ?? '');
+    return done ? t('Backed up to {places}.', { places: done[1].split(', ').map((place) => t(place)).join(', ') }) : t(text ?? '');
+}
+
 function renderBackups() {
     const b = settings().backup;
     const sftp = b.sftp;
     const st = state.app.backup;
     const probe = state.sftpProbe;
-    const status = st.running ? 'Backing up…' : st.lastRun ? `Last backup ${timeAgo(st.lastRun)}. ${escapeHtml(st.result)}` : 'No backup has run yet.';
+    const status = st.running ? t('Backing up…') : st.lastRun ? `${t('Last backup {time}.', { time: timeAgo(st.lastRun) })} ${escapeHtml(backupResult(st.result))}` : t('No backup has run yet.');
     const failed = st.lastRun && st.lastRun !== st.lastSuccess;
     $('[data-view="backups"]').innerHTML = `<div class="page-narrow">
-        <h1 class="page-title">Backups</h1>
-        <p class="page-lead">Zip files with your snippets and the encrypted vault. Protected snippets stay encrypted inside them.</p>
+        <h1 class="page-title">${t('Backups')}</h1>
+        <p class="page-lead">${t('Zip files with your snippets and the encrypted vault. Protected snippets stay encrypted inside them.')}</p>
         <div class="actions">
-            <button class="btn btn--primary ${st.running ? 'is-busy' : ''}" data-action="backup-now" ${st.running ? 'disabled' : ''}>${icon('history')}Back up now</button>
-            <button class="btn" data-action="restore">${icon('upload')}Restore from backup…</button>
+            <button class="btn btn--primary ${st.running ? 'is-busy' : ''}" data-action="backup-now" ${st.running ? 'disabled' : ''}>${icon('history')}${t('Back up now')}</button>
+            <button class="btn" data-action="restore">${icon('upload')}${t('Restore from backup…')}</button>
         </div>
         <p class="inline-note u-mt-3 ${failed ? 'inline-note--error' : ''}">${status}</p>
 
         ${renderHistoryGroup()}
 
         <div class="group">
-            <div class="group-title">Schedule</div>
-            ${row('Back up automatically', 'On a timer and after changes, in the background.', toggle('backup.enabled', b.enabled, 'Back up automatically'))}
-            ${row('Every', 'Hours between backups. 0 means only after changes.', `${numberInput('backup.intervalHours', b.intervalHours, 0, 720)}<span class="inline-note">hours</span>`)}
-            ${row('After changes', 'A few minutes after you edit snippets.', toggle('backup.onChange', b.onChange, 'Back up after changes'))}
-            ${row('Keep', 'Older backups are deleted in each place.', `${numberInput('backup.keepCount', b.keepCount, 1, 1000)}<span class="inline-note">newest</span>`)}
+            <div class="group-title">${t('Schedule')}</div>
+            ${row(t('Back up automatically'), t('On a timer and after changes, in the background.'), toggle('backup.enabled', b.enabled, t('Back up automatically')))}
+            ${row(t('Every'), t('Hours between backups. 0 means only after changes.'), `${numberInput('backup.intervalHours', b.intervalHours, 0, 720)}<span class="inline-note">${t('hours')}</span>`)}
+            ${row(t('After changes'), t('A few minutes after you edit snippets.'), toggle('backup.onChange', b.onChange, t('Back up after changes')))}
+            ${row(t('Keep'), t('Older backups are deleted in each place.'), `${numberInput('backup.keepCount', b.keepCount, 1, 1000)}<span class="inline-note">${t('newest')}</span>`)}
         </div>
 
         <div class="group">
-            <div class="group-title">This PC</div>
-            ${row('Local folder', escapeHtml(b.localDirectory), `<button class="btn btn--small" data-choose="backup.localDirectory">Change…</button>${toggle('backup.localEnabled', b.localEnabled, 'Local backups')}`)}
+            <div class="group-title">${t('This PC')}</div>
+            ${row(t('Local folder'), escapeHtml(b.localDirectory), `<button class="btn btn--small" data-choose="backup.localDirectory">${t('Change…')}</button>${toggle('backup.localEnabled', b.localEnabled, t('Local backups'))}`)}
         </div>
 
         <div class="group">
-            <div class="group-title">Synced folder</div>
-            <div class="group-lead">Google Drive for Desktop, OneDrive or Dropbox upload this folder for you.</div>
-            ${row('Folder', b.folderDirectory ? escapeHtml(b.folderDirectory) : 'Not chosen yet', `<button class="btn btn--small" data-choose="backup.folderDirectory">Choose…</button>${toggle('backup.folderEnabled', b.folderEnabled, 'Synced folder backups')}`)}
+            <div class="group-title">${t('Synced folder')}</div>
+            <div class="group-lead">${t('Google Drive for Desktop, OneDrive or Dropbox upload this folder for you.')}</div>
+            ${row(t('Folder'), b.folderDirectory ? escapeHtml(b.folderDirectory) : t('Not chosen yet'), `<button class="btn btn--small" data-choose="backup.folderDirectory">${t('Choose…')}</button>${toggle('backup.folderEnabled', b.folderEnabled, t('Synced folder backups'))}`)}
         </div>
 
         <div class="group">
-            <div class="group-title">SFTP server</div>
-            <div class="group-lead">Any server you can reach over SSH. The password is stored encrypted for your Windows account.</div>
-            ${row('Back up to this server', '', toggle('backup.sftp.enabled', sftp.enabled, 'SFTP backups'))}
+            <div class="group-title">${t('SFTP server')}</div>
+            <div class="group-lead">${t('Any server you can reach over SSH. The password is stored encrypted for your Windows account.')}</div>
+            ${row(t('Back up to this server'), '', toggle('backup.sftp.enabled', sftp.enabled, t('SFTP backups')))}
             <div class="form-grid">
-                <label class="field"><span>Host</span><input class="input" data-setting="backup.sftp.host" value="${escapeHtml(sftp.host)}" placeholder="backup.example.com" spellcheck="false"></label>
-                <label class="field"><span>Port</span><input class="input" type="number" data-setting="backup.sftp.port" value="${sftp.port}" min="1" max="65535"></label>
-                <label class="field"><span>User</span><input class="input" data-setting="backup.sftp.username" value="${escapeHtml(sftp.username)}" spellcheck="false"></label>
-                <label class="field"><span>Password</span><input class="input" type="password" data-secret="password" placeholder="${sftp.hasPassword ? 'Saved (type to replace)' : 'Optional with a key'}" autocomplete="new-password"></label>
-                <label class="field field--wide"><span>Private key</span><span class="input-with-button"><input class="input input--mono" data-setting="backup.sftp.privateKeyPath" value="${escapeHtml(sftp.privateKeyPath)}" placeholder="Optional OpenSSH or PuTTY key file"><button class="btn btn--small" data-choose-file="backup.sftp.privateKeyPath">Browse…</button></span></label>
-                <label class="field"><span>Key passphrase</span><input class="input" type="password" data-secret="passphrase" placeholder="${sftp.hasPassphrase ? 'Saved (type to replace)' : 'Only if the key has one'}" autocomplete="new-password"></label>
-                <label class="field"><span>Remote folder</span><input class="input input--mono" data-setting="backup.sftp.remoteDirectory" value="${escapeHtml(sftp.remoteDirectory)}"></label>
+                <label class="field"><span>${t('Host')}</span><input class="input" data-setting="backup.sftp.host" value="${escapeHtml(sftp.host)}" placeholder="backup.example.com" spellcheck="false"></label>
+                <label class="field"><span>${t('Port')}</span><input class="input" type="number" data-setting="backup.sftp.port" value="${sftp.port}" min="1" max="65535"></label>
+                <label class="field"><span>${t('User')}</span><input class="input" data-setting="backup.sftp.username" value="${escapeHtml(sftp.username)}" spellcheck="false"></label>
+                <label class="field"><span>${t('Password')}</span><input class="input" type="password" data-secret="password" placeholder="${sftp.hasPassword ? t('Saved (type to replace)') : t('Optional with a key')}" autocomplete="new-password"></label>
+                <label class="field field--wide"><span>${t('Private key')}</span><span class="input-with-button"><input class="input input--mono" data-setting="backup.sftp.privateKeyPath" value="${escapeHtml(sftp.privateKeyPath)}" placeholder="${t('Optional OpenSSH or PuTTY key file')}"><button class="btn btn--small" data-choose-file="backup.sftp.privateKeyPath">${t('Browse…')}</button></span></label>
+                <label class="field"><span>${t('Key passphrase')}</span><input class="input" type="password" data-secret="passphrase" placeholder="${sftp.hasPassphrase ? t('Saved (type to replace)') : t('Only if the key has one')}" autocomplete="new-password"></label>
+                <label class="field"><span>${t('Remote folder')}</span><input class="input input--mono" data-setting="backup.sftp.remoteDirectory" value="${escapeHtml(sftp.remoteDirectory)}"></label>
             </div>
             <div class="group-actions">
-                <button class="btn btn--small" data-action="test-sftp">${icon('server')}Test connection</button>
+                <button class="btn btn--small" data-action="test-sftp">${icon('server')}${t('Test connection')}</button>
                 ${sftp.hostKeyFingerprint
-                    ? `<span class="inline-note inline-note--ok">Trusted host key<span class="fingerprint">SHA256:${escapeHtml(sftp.hostKeyFingerprint)}</span></span>`
-                    : '<span class="inline-note inline-note--warn">Host key not trusted yet. Test the connection to trust it.</span>'}
+                    ? `<span class="inline-note inline-note--ok">${t('Trusted host key')}<span class="fingerprint">SHA256:${escapeHtml(sftp.hostKeyFingerprint)}</span></span>`
+                    : `<span class="inline-note inline-note--warn">${t('Host key not trusted yet. Test the connection to trust it.')}</span>`}
             </div>
-            ${probe ? `<div class="group-actions"><span class="inline-note ${probe.changed ? 'inline-note--error' : ''}">${probe.trusted ? 'Connected. The host key matches the trusted one.' : probe.changed ? 'Warning: this server presented a different host key than the trusted one.' : 'Connected. Compare this host key with your server before trusting it:'}<span class="fingerprint">SHA256:${escapeHtml(probe.fingerprint)}</span></span>${probe.trusted ? '' : `<button class="btn btn--small ${probe.changed ? 'btn--danger' : 'btn--primary'}" data-action="trust-key">Trust this key</button>`}</div>` : ''}
+            ${probe ? `<div class="group-actions"><span class="inline-note ${probe.changed ? 'inline-note--error' : ''}">${probe.trusted ? t('Connected. The host key matches the trusted one.') : probe.changed ? t('Warning: this server presented a different host key than the trusted one.') : t('Connected. Compare this host key with your server before trusting it:')}<span class="fingerprint">SHA256:${escapeHtml(probe.fingerprint)}</span></span>${probe.trusted ? '' : `<button class="btn btn--small ${probe.changed ? 'btn--danger' : 'btn--primary'}" data-action="trust-key">${t('Trust this key')}</button>`}</div>` : ''}
         </div>
     </div>`;
 }
 
 function renderHistoryGroup() {
     if (!state.app.sync.signedIn) {
-        return `<div class="group"><div class="group-title">Server history</div><div class="group-lead">Sign in on the Sync &amp; account page and the server keeps every earlier version of your snippets for 30 days, encrypted.</div><div class="group-actions"></div></div>`;
+        return `<div class="group"><div class="group-title">${t('Server history')}</div><div class="group-lead">${t('Sign in on the Sync &amp; account page and the server keeps every earlier version of your snippets for 30 days, encrypted.')}</div><div class="group-actions"></div></div>`;
     }
 
     const history = state.history;
     let body;
     if (history === null) {
-        body = `<div class="group-actions"><button class="btn btn--small" data-action="load-history">${icon('history')}Show server history</button></div>`;
+        body = `<div class="group-actions"><button class="btn btn--small" data-action="load-history">${icon('history')}${t('Show server history')}</button></div>`;
     } else if (history === 'loading') {
-        body = '<div class="group-actions"><span class="inline-note is-busy">Loading and decrypting on this PC…</span></div>';
+        body = `<div class="group-actions"><span class="inline-note is-busy">${t('Loading and decrypting on this PC…')}</span></div>`;
     } else if (history.length === 0) {
-        body = '<div class="group-actions"><span class="inline-note">No earlier versions in the last 30 days.</span></div>';
+        body = `<div class="group-actions"><span class="inline-note">${t('No earlier versions in the last 30 days.')}</span></div>`;
     } else {
         body = history.slice(0, 200).map((h) => row(
-            `<span class="abbr">${escapeHtml(h.snippet.abbreviations[0])}</span> ${h.snippet.protected ? `<span class="locked">${icon('lock')}Protected</span>` : escapeHtml(firstLine(h.snippet.expansion).slice(0, 60))}`,
-            `${h.wasDeleted ? (h.existsNow ? 'Deleted, then created again' : 'Deleted') : 'Earlier version'} · replaced ${timeAgo(h.replacedAt)}`,
-            `<button class="btn btn--small" data-restore="${escapeHtml(h.key)}">${icon('history')}Restore</button>`)).join('');
+            `<span class="abbr">${escapeHtml(h.snippet.abbreviations[0])}</span> ${h.snippet.protected ? `<span class="locked">${icon('lock')}${t('Protected')}</span>` : escapeHtml(firstLine(h.snippet.expansion).slice(0, 60))}`,
+            `${h.wasDeleted ? (h.existsNow ? t('Deleted, then created again') : t('Deleted')) : t('Earlier version')} · ${t('replaced {time}', { time: timeAgo(h.replacedAt) })}`,
+            `<button class="btn btn--small" data-restore="${escapeHtml(h.key)}">${icon('history')}${t('Restore')}</button>`)).join('');
     }
 
-    return `<div class="group"><div class="group-title">Server history</div><div class="group-lead">Earlier versions of changed or deleted snippets from the last 30 days. Decrypted here; the server cannot read them.</div>${body}</div>`;
+    return `<div class="group"><div class="group-title">${t('Server history')}</div><div class="group-lead">${t('Earlier versions of changed or deleted snippets from the last 30 days. Decrypted here; the server cannot read them.')}</div>${body}</div>`;
 }
 
 function renderAccount() {
@@ -978,15 +996,15 @@ function renderAccount() {
     const page = $('[data-view="account"]');
     if (!app.sync.signedIn && state.browserSignIn) {
         page.innerHTML = `<div class="page-narrow">
-            <h1 class="page-title">Sync &amp; account</h1>
-            <p class="page-lead">Finish signing in on the website that just opened in your browser.</p>
+            <h1 class="page-title">${t('Sync &amp; account')}</h1>
+            <p class="page-lead">${t('Finish signing in on the website that just opened in your browser.')}</p>
             <div class="card signin">
-                <p class="inline-note">Check that the website shows this code before you enter your password:</p>
+                <p class="inline-note">${t('Check that the website shows this code before you enter your password:')}</p>
                 <p class="fingerprint">${escapeHtml(state.browserSignIn.fingerprint)}</p>
-                <p class="inline-note">Your browser hands the encryption key to this app only; the password stays in the browser. The link works for 10 minutes.</p>
+                <p class="inline-note">${t('Your browser hands the encryption key to this app only; the password stays in the browser. The link works for 10 minutes.')}</p>
                 <div class="actions">
-                    <button class="btn" type="button" data-action="browser-signin">${icon('external')}Open the page again</button>
-                    <button class="btn btn--ghost" type="button" data-action="cancel-browser-signin">Cancel</button>
+                    <button class="btn" type="button" data-action="browser-signin">${icon('external')}${t('Open the page again')}</button>
+                    <button class="btn btn--ghost" type="button" data-action="cancel-browser-signin">${t('Cancel')}</button>
                 </div>
             </div>
         </div>`;
@@ -996,44 +1014,44 @@ function renderAccount() {
     if (!app.sync.signedIn) {
         const customServer = sync.serverUrl !== sync.defaultServer;
         page.innerHTML = `<div class="page-narrow">
-            <h1 class="page-title">Sync &amp; account</h1>
-            <p class="page-lead">Sign in to keep your snippets on every computer. They are encrypted on this PC before upload; we cannot read them.</p>
+            <h1 class="page-title">${t('Sync &amp; account')}</h1>
+            <p class="page-lead">${t('Sign in to keep your snippets on every computer. They are encrypted on this PC before upload; we cannot read them.')}</p>
             <form class="card signin" id="signin-form">
-                <label class="field"><span>Email</span><input class="input" name="email" type="email" value="${escapeHtml(sync.email)}" required autocomplete="username" spellcheck="false"></label>
-                <label class="field"><span>Password</span><input class="input" name="password" type="password" required autocomplete="current-password"></label>
-                <label class="field"><span>Name of this computer</span><input class="input" name="device" value="${escapeHtml(sync.deviceName)}" required></label>
-                <label class="field" id="server-field" ${customServer ? '' : 'hidden'}><span>Server</span><input class="input input--mono" name="server" value="${escapeHtml(sync.serverUrl)}" spellcheck="false"></label>
+                <label class="field"><span>${t('Email')}</span><input class="input" name="email" type="email" value="${escapeHtml(sync.email)}" required autocomplete="username" spellcheck="false"></label>
+                <label class="field"><span>${t('Password')}</span><input class="input" name="password" type="password" required autocomplete="current-password"></label>
+                <label class="field"><span>${t('Name of this computer')}</span><input class="input" name="device" value="${escapeHtml(sync.deviceName)}" required></label>
+                <label class="field" id="server-field" ${customServer ? '' : 'hidden'}><span>${t('Server')}</span><input class="input input--mono" name="server" value="${escapeHtml(sync.serverUrl)}" spellcheck="false"></label>
                 <div class="error" hidden></div>
                 <div class="actions">
-                    <button class="btn btn--primary" type="submit">Sign in</button>
-                    <button class="btn" type="button" data-action="browser-signin">${icon('external')}Sign in with browser</button>
-                    ${customServer ? '' : '<button class="btn btn--ghost" type="button" data-action="custom-server">Use another server</button>'}
+                    <button class="btn btn--primary" type="submit">${t('Sign in')}</button>
+                    <button class="btn" type="button" data-action="browser-signin">${icon('external')}${t('Sign in with browser')}</button>
+                    ${customServer ? '' : `<button class="btn btn--ghost" type="button" data-action="custom-server">${t('Use another server')}</button>`}
                 </div>
-                <p class="inline-note u-mt-4">No account yet? <button class="link" type="button" data-action="open-register">Create one on freevy.app</button></p>
+                <p class="inline-note u-mt-4">${t('No account yet?')} <button class="link" type="button" data-action="open-register">${t('Create one on freevy.app')}</button></p>
             </form>
         </div>`;
         return;
     }
 
     page.innerHTML = `<div class="page-narrow">
-        <h1 class="page-title">Sync &amp; account</h1>
-        <p class="page-lead">Your snippets are encrypted on this PC before they are uploaded.</p>
+        <h1 class="page-title">${t('Sync &amp; account')}</h1>
+        <p class="page-lead">${t('Your snippets are encrypted on this PC before they are uploaded.')}</p>
         <div class="card account">
-            <div class="account-head"><span class="avatar">${escapeHtml((sync.email[0] ?? '?').toUpperCase())}</span><div><strong>${escapeHtml(sync.email)}</strong><span>This computer: ${escapeHtml(sync.deviceName)}</span></div></div>
+            <div class="account-head"><span class="avatar">${escapeHtml((sync.email[0] ?? '?').toUpperCase())}</span><div><strong>${escapeHtml(sync.email)}</strong><span>${escapeHtml(t('This computer: {name}', { name: sync.deviceName }))}</span></div></div>
             <div class="stats">
-                <div class="stat"><strong>${number.format(state.snippets.length)}</strong><span>snippets</span></div>
-                <div class="stat"><strong>${app.sync.running ? '…' : app.sync.lastSync ? timeAgo(app.sync.lastSync) : 'not yet'}</strong><span>last sync</span></div>
-                <div class="stat stat--accent"><strong>${sync.intervalMinutes} min</strong><span>sync interval</span></div>
+                <div class="stat"><strong>${number.format(state.snippets.length)}</strong><span>${t('snippets')}</span></div>
+                <div class="stat"><strong>${app.sync.running ? '…' : app.sync.lastSync ? timeAgo(app.sync.lastSync) : t('not yet')}</strong><span>${t('last sync')}</span></div>
+                <div class="stat stat--accent"><strong>${t('{count} min', { count: sync.intervalMinutes })}</strong><span>${t('sync interval')}</span></div>
             </div>
             ${app.sync.error ? `<p class="inline-note inline-note--error u-mt-4">${escapeHtml(app.sync.error)}</p>` : ''}
             <div class="actions">
-                <button class="btn btn--primary ${app.sync.running ? 'is-busy' : ''}" data-action="sync-now" ${app.sync.running ? 'disabled' : ''}>${icon('refresh')}Sync now</button>
-                <button class="btn" data-action="open-account">${icon('external')}Devices on the website</button>
-                <button class="btn btn--ghost" data-action="sign-out">${icon('logout')}Sign out</button>
+                <button class="btn btn--primary ${app.sync.running ? 'is-busy' : ''}" data-action="sync-now" ${app.sync.running ? 'disabled' : ''}>${icon('refresh')}${t('Sync now')}</button>
+                <button class="btn" data-action="open-account">${icon('external')}${t('Devices on the website')}</button>
+                <button class="btn btn--ghost" data-action="sign-out">${icon('logout')}${t('Sign out')}</button>
             </div>
         </div>
         <div class="group">
-            ${row('Sync every', 'Freevy also syncs a few seconds after you change something.', `${numberInput('syncIntervalMinutes', sync.intervalMinutes, 1, 1440)}<span class="inline-note">minutes</span>`)}
+            ${row(t('Sync every'), t('Freevy also syncs a few seconds after you change something.'), `${numberInput('syncIntervalMinutes', sync.intervalMinutes, 1, 1440)}<span class="inline-note">${t('minutes')}</span>`)}
         </div>
     </div>`;
 }
@@ -1044,33 +1062,33 @@ function renderSecurity() {
     const s = settings();
     const main = !app.vault.configured
         ? `<form class="card signin" id="master-form">
-                <h3 class="u-m0">Set a master password</h3>
-                <p class="inline-note u-mt-1">Protected snippets are encrypted with it (AES-256). There is no recovery: if you forget it, protected snippets cannot be opened, also not from backups.</p>
-                <label class="field u-mt-4"><span>Master password (at least 8 characters)</span><input class="input" name="password" type="password" required minlength="8" autocomplete="new-password"></label>
-                <label class="field"><span>Repeat</span><input class="input" name="repeat" type="password" required autocomplete="new-password"></label>
-                <label class="check u-mt-3"><input type="checkbox" name="protectFolders" checked><span>Protect snippets in folders whose name contains “password”</span></label>
+                <h3 class="u-m0">${t('Set a master password')}</h3>
+                <p class="inline-note u-mt-1">${t('Protected snippets are encrypted with it (AES-256). There is no recovery: if you forget it, protected snippets cannot be opened, also not from backups.')}</p>
+                <label class="field u-mt-4"><span>${t('Master password (at least 8 characters)')}</span><input class="input" name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+                <label class="field"><span>${t('Repeat')}</span><input class="input" name="repeat" type="password" required autocomplete="new-password"></label>
+                <label class="check u-mt-3"><input type="checkbox" name="protectFolders" checked><span>${t('Protect snippets in folders whose name contains “password”')}</span></label>
                 <div class="error" hidden></div>
-                <div class="actions"><button class="btn btn--primary" type="submit">${icon('shield')}Set master password</button></div>
+                <div class="actions"><button class="btn btn--primary" type="submit">${icon('shield')}${t('Set master password')}</button></div>
             </form>`
         : `<div class="cards">
-                <div class="card ${app.vault.unlocked ? 'card--active' : ''}"><div class="card-icon">${icon(app.vault.unlocked ? 'unlock' : 'lock')}</div><h3>${app.vault.unlocked ? `Unlocked until ${app.vault.locksAt}` : 'Locked'}</h3><div class="meta">${plural(protectedCount, 'protected snippet')}</div></div>
+                <div class="card ${app.vault.unlocked ? 'card--active' : ''}"><div class="card-icon">${icon(app.vault.unlocked ? 'unlock' : 'lock')}</div><h3>${app.vault.unlocked ? t('Unlocked until {time}', { time: app.vault.locksAt }) : t('Locked')}</h3><div class="meta">${plural(protectedCount, 'protected snippet')}</div></div>
             </div>
             <div class="actions">
                 ${app.vault.unlocked
-                    ? `<button class="btn btn--primary" data-action="lock">${icon('lock')}Lock now</button>`
-                    : `<button class="btn btn--primary" data-action="unlock">${icon('unlock')}Unlock</button>`}
-                <button class="btn" data-action="change-master">${icon('key')}Change master password</button>
-                <button class="btn btn--ghost btn--danger" data-action="remove-master">Remove master password</button>
+                    ? `<button class="btn btn--primary" data-action="lock">${icon('lock')}${t('Lock now')}</button>`
+                    : `<button class="btn btn--primary" data-action="unlock">${icon('unlock')}${t('Unlock')}</button>`}
+                <button class="btn" data-action="change-master">${icon('key')}${t('Change master password')}</button>
+                <button class="btn btn--ghost btn--danger" data-action="remove-master">${t('Remove master password')}</button>
             </div>`;
 
     $('[data-view="security"]').innerHTML = `<div class="page-narrow">
-        <h1 class="page-title">Master password</h1>
-        <p class="page-lead">Protected snippets (passwords, card numbers, anything secret) are encrypted on this PC and only unlock for a few minutes at a time.</p>
+        <h1 class="page-title">${t('Master password')}</h1>
+        <p class="page-lead">${t('Protected snippets (passwords, card numbers, anything secret) are encrypted on this PC and only unlock for a few minutes at a time.')}</p>
         ${main}
         <div class="group">
-            <div class="group-title">Unlocking</div>
-            ${row('Stay unlocked for', 'After entering the master password.', `${numberInput('unlockMinutes', s.unlockMinutes, 1, 1440)}<span class="inline-note">minutes</span>`)}
-            ${row('Lock when Windows locks', 'Forget the key as soon as you lock your PC.', toggle('lockWhenWindowsLocks', s.lockWhenWindowsLocks, 'Lock when Windows locks'))}
+            <div class="group-title">${t('Unlocking')}</div>
+            ${row(t('Stay unlocked for'), t('After entering the master password.'), `${numberInput('unlockMinutes', s.unlockMinutes, 1, 1440)}<span class="inline-note">${t('minutes')}</span>`)}
+            ${row(t('Lock when Windows locks'), t('Forget the key as soon as you lock your PC.'), toggle('lockWhenWindowsLocks', s.lockWhenWindowsLocks, t('Lock when Windows locks')))}
         </div>
     </div>`;
 }
@@ -1080,21 +1098,21 @@ function updateRow() {
     const u = state.app.update ?? {};
     const version = escapeHtml(state.app.version ?? '');
     if (!u.installed) {
-        return row(`Version ${version}`, 'Running from a build folder; updates only work in the installed app.', '');
+        return row(t('Version {version}', { version }), t('Running from a build folder; updates only work in the installed app.'), '');
     }
 
-    const checked = u.lastChecked ? `Last checked ${timeAgo(u.lastChecked)}.` : 'Not checked yet.';
+    const checked = u.lastChecked ? t('Last checked {time}.', { time: timeAgo(u.lastChecked) }) : t('Not checked yet.');
     if (u.ready) {
-        return row(`Freevy ${escapeHtml(u.ready)} is ready`, `You have ${version}. It installs the next time Freevy starts, or now with a quick restart.`,
-            `<button class="btn btn--small btn--primary" data-action="restart-to-update">${icon('download')}Restart and update</button>`);
+        return row(t('Freevy {version} is ready', { version: escapeHtml(u.ready) }), t('You have {version}. It installs the next time Freevy starts, or now with a quick restart.', { version }),
+            `<button class="btn btn--small btn--primary" data-action="restart-to-update">${icon('download')}${t('Restart and update')}</button>`);
     }
     if (u.available) {
-        return row(`Freevy ${escapeHtml(u.available)} is available`, `You have ${version}. ${checked}`,
-            `<button class="btn btn--small btn--primary" data-action="install-update" ${u.checking ? 'disabled' : ''}>${icon('download')}Download and install</button>`);
+        return row(t('Freevy {version} is available', { version: escapeHtml(u.available) }), `${t('You have {version}.', { version })} ${checked}`,
+            `<button class="btn btn--small btn--primary" data-action="install-update" ${u.checking ? 'disabled' : ''}>${icon('download')}${t('Download and install')}</button>`);
     }
 
-    return row(`Version ${version}`, u.checking ? 'Checking for updates…' : u.error ? escapeHtml(u.error) : `${checked}${u.lastChecked ? ' You have the latest version.' : ''}`,
-        `<button class="btn btn--small" data-action="check-updates" ${u.checking ? 'disabled' : ''}>Check now</button>`);
+    return row(t('Version {version}', { version }), u.checking ? t('Checking for updates…') : u.error ? escapeHtml(t(u.error)) : `${checked}${u.lastChecked ? ` ${t('You have the latest version.')}` : ''}`,
+        `<button class="btn btn--small" data-action="check-updates" ${u.checking ? 'disabled' : ''}>${t('Check now')}</button>`);
 }
 
 function renderSettings() {
@@ -1108,46 +1126,54 @@ function renderSettings() {
             <span class="name">${name}${icon('check')}</span>
         </button>`;
     $('[data-view="settings"]').innerHTML = `<div class="page-narrow">
-        <h1 class="page-title">Settings</h1>
-        <p class="page-lead">How Freevy types, starts and looks.</p>
+        <h1 class="page-title">${t('Settings')}</h1>
+        <p class="page-lead">${t('How Freevy types, starts and looks.')}</p>
 
         <div class="group">
-            <div class="group-title">General</div>
-            ${row('Expand abbreviations', 'Pause Freevy without closing it. Also on the chip in the title bar.', toggle('expansionEnabled', s.expansionEnabled, 'Expand abbreviations'))}
-            ${row('Start with Windows', 'Freevy starts in the tray when you sign in to Windows.', toggle('autostart', s.autostart, 'Start with Windows'))}
-            ${row('Updates', 'A few times a day Freevy asks freevy.app for a new version. The request carries your Freevy version and nothing else about you.', segmented('Updates', 'updateMode', s.updateMode, [['install', 'Install automatically'], ['notify', 'Only tell me'], ['off', 'Off']]))}
-            ${s.updateMode === 'off' ? '' : row('Check every', '', segmented('Check every', 'updateCheckHours', String(s.updateCheckHours), [['1', 'Hour'], ['6', '6 hours'], ['24', 'Day'], ['168', 'Week']]))}
+            <div class="group-title">${t('General')}</div>
+            ${row(t('Language'), t('Follows Windows unless you choose one.'), `<select class="input input--medium" data-setting-select="language" aria-label="${t('Language')}">${[['', t('Like Windows')], ['en', 'English'], ['tr', 'Türkçe'], ['de', 'Deutsch']].map(([v, label]) => `<option value="${v}" ${v === (s.language ?? '') ? 'selected' : ''}>${label}</option>`).join('')}</select>`)}
+            ${row(t('Expand abbreviations'), t('Pause Freevy without closing it. Also on the chip in the title bar.'), toggle('expansionEnabled', s.expansionEnabled, t('Expand abbreviations')))}
+            ${row(t('Start with Windows'), t('Freevy starts in the tray when you sign in to Windows.'), toggle('autostart', s.autostart, t('Start with Windows')))}
+            ${row(t('Updates'), t('A few times a day Freevy asks freevy.app for a new version. The request carries your Freevy version and nothing else about you.'), segmented(t('Updates'), 'updateMode', s.updateMode, [['install', t('Install automatically')], ['notify', t('Only tell me')], ['off', t('Off')]]))}
+            ${s.updateMode === 'off' ? '' : row(t('Check every'), '', segmented(t('Check every'), 'updateCheckHours', String(s.updateCheckHours), [['1', t('Hour')], ['6', t('6 hours')], ['24', t('Day')], ['168', t('Week')]]))}
             ${updateRow()}
         </div>
 
         <div class="group">
-            <div class="group-title">Typing</div>
-            ${row('Delimiters', 'Characters that end a word. \\t is Tab, \\n is Enter.', `<input class="input input--medium input--mono" data-setting="delimiters" value="${escapeHtml(s.delimiters)}" spellcheck="false"><button class="btn btn--small btn--ghost" data-action="reset-delimiters">Reset</button>`)}
-            ${row('Line breaks', 'Typing Enter sends the message in Slack, Discord or Teams. Pasting puts multi-line snippets in as one piece.', segmented('Line breaks', 'lineBreaks', s.lineBreaks, [['paste', 'Paste the text'], ['shiftEnter', 'Type Shift+Enter'], ['enter', 'Type Enter']]))}
-            ${row('Paste long expansions', 'Expansions longer than this are pasted instead of typed.', `${numberInput('clipboardThreshold', s.clipboardThreshold, 1, 1000000)}<span class="inline-note">characters</span>`)}
-            ${row('New snippets expand', '', segmented('Default expand', 'defaultTrigger', s.defaultTrigger, [['after', 'After space'], ['instant', 'Instantly']]))}
-            ${row('New snippets only at word start', '', toggle('defaultWordStart', s.defaultWordStart, 'Only at word start'))}
-            ${row('New snippets case', '', segmented('Default case', 'defaultCase', s.defaultCase, [['exact', 'Exact'], ['ignore', 'Ignore'], ['adapt', 'Adapt']]))}
+            <div class="group-title">${t('Typing')}</div>
+            ${row(t('Delimiters'), t('Characters that end a word. \\t is Tab, \\n is Enter.'), `<input class="input input--medium input--mono" data-setting="delimiters" value="${escapeHtml(s.delimiters)}" spellcheck="false"><button class="btn btn--small btn--ghost" data-action="reset-delimiters">${t('Reset')}</button>`)}
+            ${row(t('Line breaks'), t('Typing Enter sends the message in Slack, Discord or Teams. Pasting puts multi-line snippets in as one piece.'), segmented(t('Line breaks'), 'lineBreaks', s.lineBreaks, [['paste', t('Paste the text')], ['shiftEnter', t('Type Shift+Enter')], ['enter', t('Type Enter')]]))}
+            ${row(t('Paste long expansions'), t('Expansions longer than this are pasted instead of typed.'), `${numberInput('clipboardThreshold', s.clipboardThreshold, 1, 1000000)}<span class="inline-note">${t('characters')}</span>`)}
+            ${row(t('New snippets expand'), '', segmented(t('Default expand'), 'defaultTrigger', s.defaultTrigger, [['after', t('After space')], ['instant', t('Instantly')]]))}
+            ${row(t('New snippets only at word start'), '', toggle('defaultWordStart', s.defaultWordStart, t('Only at word start')))}
+            ${row(t('New snippets case'), '', segmented(t('Default case'), 'defaultCase', s.defaultCase, [['exact', t('Exact')], ['ignore', t('Ignore')], ['adapt', t('Adapt')]]))}
         </div>
 
         <div class="group">
-            <div class="group-title">Privacy</div>
-            ${row('Hide expansions in folders containing', 'Only hides text in the list. Use protected snippets to encrypt secrets.', `<input class="input input--medium" data-setting="maskFoldersContaining" value="${escapeHtml(s.maskFoldersContaining)}" placeholder="e.g. private">`)}
+            <div class="group-title">${t('Privacy')}</div>
+            ${row(t('Hide expansions in folders containing'), t('Only hides text in the list. Use protected snippets to encrypt secrets.'), `<input class="input input--medium" data-setting="maskFoldersContaining" value="${escapeHtml(s.maskFoldersContaining)}" placeholder="${t('e.g. private')}">`)}
         </div>
 
-        <h2 class="section-title">${icon('palette')}Theme</h2>
-        <div class="theme-group-label">Dark</div>
-        <div class="theme-grid" role="radiogroup" aria-label="Dark themes">${THEMES.filter((t) => t[2] === 'dark').map(themeCard).join('')}</div>
-        <div class="theme-group-label">Light</div>
-        <div class="theme-grid" role="radiogroup" aria-label="Light themes">${THEMES.filter((t) => t[2] === 'light').map(themeCard).join('')}</div>
+        <h2 class="section-title">${icon('palette')}${t('Theme')}</h2>
+        <div class="theme-group-label">${t('Dark')}</div>
+        <div class="theme-grid" role="radiogroup" aria-label="${t('Dark themes')}">${THEMES.filter((t) => t[2] === 'dark').map(themeCard).join('')}</div>
+        <div class="theme-group-label">${t('Light')}</div>
+        <div class="theme-grid" role="radiogroup" aria-label="${t('Light themes')}">${THEMES.filter((t) => t[2] === 'light').map(themeCard).join('')}</div>
 
         <div class="group">
-            <div class="group-title">Your data</div>
-            ${row('Import from Breevy', state.app.breevyAvailable ? 'Replaces your snippets with your Breevy library. The current ones are backed up first.' : 'No Breevy library found on this PC.', `<button class="btn btn--small" data-action="import-breevy" ${state.app.breevyAvailable ? '' : 'disabled'}>${icon('download')}Import</button>`)}
-            ${row('Export snippets', 'A JSON file with all snippets; protected ones stay encrypted.', `<button class="btn btn--small" data-action="export">${icon('upload')}Export…</button>`)}
-            ${row('Data folder', escapeHtml(state.app.dataDirectory), `<button class="btn btn--small" data-action="open-data">${icon('folder')}Open</button>`)}
+            <div class="group-title">${t('Your data')}</div>
+            ${row(t('Import from Breevy'), state.app.breevyAvailable ? 'Replaces your snippets with your Breevy library. The current ones are backed up first.' : 'No Breevy library found on this PC.', `<button class="btn btn--small" data-action="import-breevy" ${state.app.breevyAvailable ? '' : 'disabled'}>${icon('download')}${t('Import')}</button>`)}
+            ${row(t('Import from another app'), t('Espanso, Beeftext, TextExpander (CSV export) or any CSV file. Adds to your snippets; nothing is replaced.'), `<button class="btn btn--small" data-action="import-other" aria-haspopup="menu">${icon('download')}${t('Import…')}</button>`)}
+            ${row(t('Export snippets'), t('A JSON file with all snippets; protected ones stay encrypted.'), `<button class="btn btn--small" data-action="export">${icon('upload')}${t('Export…')}</button>`)}
+            ${row(t('Data folder'), escapeHtml(state.app.dataDirectory), `<button class="btn btn--small" data-action="open-data">${icon('folder')}${t('Open')}</button>`)}
         </div>
-        <p class="inline-note about">Freevy ${escapeHtml(state.app.version ?? '')}${isDemo ? ' (demo data)' : ''}.</p>
+        <div class="group">
+            <div class="group-title">${t('About')}</div>
+            ${row(`Freevy ${escapeHtml(state.app.version ?? '')}`, `${state.app.commit ? `${t('Built from commit {commit}.', { commit: escapeHtml(state.app.commit) })} ` : ''}${isDemo ? `${t('Demo data.')} ` : ''}${t('Free and open source under the GNU GPL v3.')}`,
+                `<button class="btn btn--small" data-link="releaseNotes">${icon('external')}${t('What\'s new')}</button><button class="btn btn--small btn--ghost" data-link="license">${t('License')}</button>`)}
+            ${row(t('Freevy on the web'), t('No telemetry and no ads. Ideas and bug reports are welcome on GitHub.'),
+                `<button class="btn btn--small" data-link="website">freevy.app</button><button class="btn btn--small" data-action="open-github">${icon('github')}GitHub</button><button class="btn btn--small" data-link="issues">${t('Report a problem')}</button><button class="btn btn--small btn--ghost" data-link="privacy">${t('Privacy')}</button>`)}
+        </div>
     </div>`;
 }
 
@@ -1186,7 +1212,7 @@ function nested(path, value) {
 
 async function saveSetting(path, value) {
     if (path === 'autostart') {
-        await run(() => call('setAutostart', { enabled: value }), value ? 'Freevy starts with Windows' : 'Freevy no longer starts with Windows');
+        await run(() => call('setAutostart', { enabled: value }), value ? t('Freevy starts with Windows') : t('Freevy no longer starts with Windows'));
         await refreshState();
         renderPage();
         return;
@@ -1207,6 +1233,7 @@ document.addEventListener('click', async (event) => {
     const action = target.dataset.action;
 
     if (target.dataset.nav) return showView(target.dataset.nav);
+    if (target.dataset.link) return call('openLink', { link: target.dataset.link });
     if (target.dataset.window) return call('window', { action: target.dataset.window });
     if (target.matches('.folder-item')) {
         state.folder = target.dataset.folder === ALL ? null : target.dataset.folder;
@@ -1260,13 +1287,13 @@ document.addEventListener('click', async (event) => {
     }
 
     if (target.dataset.choose) {
-        const path = await call('chooseFolder', { title: 'Choose backup folder', initial: '' });
+        const path = await call('chooseFolder', { title: t('Choose backup folder'), initial: '' });
         if (path) await saveSetting(target.dataset.choose, path);
         return renderPage();
     }
 
     if (target.dataset.chooseFile) {
-        const path = await call('chooseFile', { title: 'Choose SSH private key', filter: 'All files (*.*)|*.*', initial: '' });
+        const path = await call('chooseFile', { title: t('Choose SSH private key'), filter: `${t('All files')} (*.*)|*.*`, initial: '' });
         if (path) await saveSetting(target.dataset.chooseFile, path);
         return renderPage();
     }
@@ -1274,9 +1301,9 @@ document.addEventListener('click', async (event) => {
     if (target.dataset.restore) {
         const version = state.history.find((h) => h.key === target.dataset.restore);
         const abbr = version.snippet.abbreviations[0];
-        const body = version.existsNow ? `The current “${escapeHtml(abbr)}” is replaced by this version. The current one stays in the history.` : `“${escapeHtml(abbr)}” comes back as it was.`;
-        if (await confirmDialog({ title: 'Restore this version?', body, confirm: 'Restore' })) {
-            const restored = await run(() => call('restoreVersion', { key: version.key }), `Restored “${abbr}”`);
+        const body = version.existsNow ? t('The current “{name}” is replaced by this version. The current one stays in the history.', { name: escapeHtml(abbr) }) : t('“{name}” comes back as it was.', { name: escapeHtml(abbr) });
+        if (await confirmDialog({ title: t('Restore this version?'), body, confirm: t('Restore') })) {
+            const restored = await run(() => call('restoreVersion', { key: version.key }), t('Restored “{name}”', { name: abbr }));
             if (restored) {
                 state.history = null;
                 renderBackups();
@@ -1310,9 +1337,9 @@ document.addEventListener('click', async (event) => {
         case 'lock': return call('lock');
         case 'backup-now': return run(() => call('backupNow'));
         case 'restore': {
-            const path = await call('chooseFile', { title: 'Restore from backup', filter: 'Freevy backups (*.zip)|*.zip', initial: settings().backup.localDirectory });
-            if (path && await confirmDialog({ title: 'Restore this backup?', body: 'All current snippets are replaced. If it contains protected snippets, its master password applies again. The current state is saved first as a backup.', confirm: 'Restore', danger: true })) {
-                await run(() => call('restoreBackup', { path }), (n) => `Restored ${plural(n, 'snippet')}`);
+            const path = await call('chooseFile', { title: t('Restore from backup'), filter: `${t('Freevy backups')} (*.zip)|*.zip`, initial: settings().backup.localDirectory });
+            if (path && await confirmDialog({ title: t('Restore this backup?'), body: t('All current snippets are replaced. If it contains protected snippets, its master password applies again. The current state is saved first as a backup.'), confirm: t('Restore'), danger: true })) {
+                await run(() => call('restoreBackup', { path }), (n) => t('Restored {count}', { count: plural(n, 'snippet') }));
             }
             return;
         }
@@ -1323,7 +1350,7 @@ document.addEventListener('click', async (event) => {
             return renderBackups();
         }
         case 'trust-key':
-            await run(() => call('trustHostKey', { fingerprint: state.sftpProbe.fingerprint }), 'Host key trusted');
+            await run(() => call('trustHostKey', { fingerprint: state.sftpProbe.fingerprint }), t('Host key trusted'));
             state.sftpProbe = null;
             await refreshState();
             return renderBackups();
@@ -1353,13 +1380,13 @@ document.addEventListener('click', async (event) => {
             target.disabled = true;
             state.app = (await run(() => call('checkForUpdates'))) ?? state.app;
             const u = state.app.update ?? {};
-            if (!u.ready && !u.available && !u.error) toast('Freevy is up to date');
+            if (!u.ready && !u.available && !u.error) toast(t('Freevy is up to date'));
             renderPage();
             return;
         }
         case 'install-update': {
             target.disabled = true;
-            target.textContent = 'Downloading…';
+            target.textContent = t('Downloading…');
             state.app = (await run(() => call('installUpdate'))) ?? state.app;
             renderPage();
             return;
@@ -1373,10 +1400,10 @@ document.addEventListener('click', async (event) => {
         }
         case 'select-extra': {
             const extra = extraCopies();
-            if (!extra.length) return toast('No exact copies here: these snippets differ, so choose which to keep yourself');
+            if (!extra.length) return toast(t('No exact copies here: these snippets differ, so choose which to keep yourself'));
             extra.forEach((id) => state.checked.add(id));
             renderList();
-            return toast(`${plural(extra.length, 'exact copy', 'exact copies')} selected; one of each is kept`);
+            return toast(t('{count} selected; one of each is kept', { count: plural(extra.length, 'exact copy', 'exact copies') }));
         }
         case 'delete-checked': return deleteChecked();
         case 'move-checked': return moveChecked();
@@ -1385,7 +1412,7 @@ document.addEventListener('click', async (event) => {
         case 'open-account': return call('openAccountPage', { path: 'account' });
         case 'sync-now': return call('syncNow');
         case 'sign-out':
-            if (await confirmDialog({ title: 'Sign this computer out?', body: 'Your snippets stay on this PC; they just stop syncing.', confirm: 'Sign out' })) {
+            if (await confirmDialog({ title: t('Sign this computer out?'), body: t('Your snippets stay on this PC; they just stop syncing.'), confirm: t('Sign out') })) {
                 state.app = (await run(() => call('signOut'))) ?? state.app;
                 renderPage();
                 renderChrome();
@@ -1399,16 +1426,23 @@ document.addEventListener('click', async (event) => {
             return saveSetting('delimiters', input.value);
         }
         case 'import-breevy':
-            if (await confirmDialog({ title: 'Import from Breevy?', body: 'Your current snippets are replaced by your Breevy library. They are backed up first.', confirm: 'Import' })) {
-                await run(() => call('importBreevy'), (n) => `Imported ${plural(n, 'snippet')}`);
+            if (await confirmDialog({ title: t('Import from Breevy?'), body: t('Your current snippets are replaced by your Breevy library. They are backed up first.'), confirm: t('Import') })) {
+                await run(() => call('importBreevy'), (n) => t('Imported {count}', { count: plural(n, 'snippet') }));
             }
             return;
         case 'export': {
             const path = await run(() => call('exportSnippets'));
-            if (path) toast('Snippets exported');
+            if (path) toast(t('Snippets exported'));
             return;
         }
         case 'open-data': return call('openDataFolder');
+        case 'open-github': return call('openRepository');
+        case 'import-other': return menu(target, [
+            [t('Espanso (match folder)'), 'Espanso', 'espanso'],
+            [t('Beeftext (comboList.json)'), 'Beeftext', 'beeftext'],
+            [t('TextExpander (group exported as CSV)'), 'TextExpander', 'textexpander'],
+            [t('Other CSV file'), t('the CSV file'), 'csv'],
+        ].map(([label, source, kind]) => ({ label, icon: 'download', action: () => importFrom(kind, source) })));
     }
 });
 
@@ -1423,44 +1457,51 @@ function collectSftpDraft() {
 
 async function changeMaster() {
     const result = await dialog({
-        title: 'Change master password',
-        body: 'Protected snippets are re-encrypted with the new password.',
+        title: t('Change master password'),
+        body: t('Protected snippets are re-encrypted with the new password.'),
         fields: [
-            { label: 'Current master password', type: 'password', autocomplete: 'current-password' },
-            { label: 'New master password (at least 8 characters)', type: 'password', autocomplete: 'new-password' },
-            { label: 'Repeat new master password', type: 'password', autocomplete: 'new-password' },
+            { label: t('Current master password'), type: 'password', autocomplete: 'current-password' },
+            { label: t('New master password (at least 8 characters)'), type: 'password', autocomplete: 'new-password' },
+            { label: t('Repeat new master password'), type: 'password', autocomplete: 'new-password' },
         ],
-        confirm: 'Change',
+        confirm: t('Change'),
         onSubmit: async ({ fields }) => {
-            if (fields[1] !== fields[2]) throw new Error('The new passwords do not match.');
+            if (fields[1] !== fields[2]) throw new Error(t('The new passwords do not match.'));
             await call('setMasterPassword', { current: fields[0], password: fields[1] });
         },
     });
-    if (result) toast('Master password changed');
+    if (result) toast(t('Master password changed'));
 }
 
 async function removeMaster() {
     const count = state.snippets.filter((s) => s.protected).length;
     const result = await dialog({
-        title: 'Remove master password?',
-        body: `${plural(count, 'protected snippet')} will be stored as plain text again.`,
-        fields: [{ label: 'Master password', type: 'password', autocomplete: 'current-password' }],
-        confirm: 'Remove',
+        title: t('Remove master password?'),
+        body: t('{count} will be stored as plain text again.', { count: plural(count, 'protected snippet') }),
+        fields: [{ label: t('Master password'), type: 'password', autocomplete: 'current-password' }],
+        confirm: t('Remove'),
         danger: true,
         onSubmit: ({ fields }) => call('removeMasterPassword', { password: fields[0] }),
     });
-    if (result) toast('Master password removed');
+    if (result) toast(t('Master password removed'));
 }
 
 document.addEventListener('change', async (event) => {
     const input = event.target;
+    if (input.dataset.settingSelect === 'language') {
+        // Everything on screen was rendered in the old language: start over in the new one.
+        await saveSetting('language', input.value);
+        location.reload();
+        return;
+    }
+
     if (input.dataset.setting && input.type !== 'checkbox') {
         const value = input.type === 'number' ? Number(input.value) : input.value;
         return saveSetting(input.dataset.setting, value);
     }
 
     if (input.dataset.secret) {
-        await run(() => call('setSftpSecret', { [input.dataset.secret]: input.value }), input.value ? 'Saved securely' : 'Removed');
+        await run(() => call('setSftpSecret', { [input.dataset.secret]: input.value }), input.value ? t('Saved securely') : t('Removed'));
         input.value = '';
         await refreshState();
         return renderBackups();
@@ -1484,7 +1525,7 @@ document.addEventListener('input', (event) => {
     if (field && state.draft && ['description', 'expansion', 'folder', 'lineBreaks'].includes(field)) {
         state.draft[field] = input.value;
         updateEditorChrome();
-        if (field === 'folder') $('#editor .eyebrow').textContent = input.value || 'No folder';
+        if (field === 'folder') $('#editor .eyebrow').textContent = input.value || t('No folder');
     }
 });
 
@@ -1502,11 +1543,11 @@ document.addEventListener('submit', async (event) => {
         if (form.id === 'signin-form') {
             const server = String(data.get('server') || settings().sync.serverUrl).trim();
             state.app = await call('signIn', { server, email: String(data.get('email')).trim(), password: data.get('password'), device: String(data.get('device')).trim() });
-            toast('Signed in. Syncing your snippets…');
+            toast(t('Signed in. Syncing your snippets…'));
         } else if (form.id === 'master-form') {
-            if (data.get('password') !== data.get('repeat')) throw new Error('The two passwords do not match.');
+            if (data.get('password') !== data.get('repeat')) throw new Error(t('The two passwords do not match.'));
             const protectedCount = await call('setMasterPassword', { password: data.get('password'), protectPasswordFolders: data.get('protectFolders') === 'on' });
-            toast(protectedCount ? `Master password set. ${plural(protectedCount, 'snippet')} protected.` : 'Master password set');
+            toast(protectedCount ? t('Master password set. {count} protected.', { count: plural(protectedCount, 'snippet') }) : t('Master password set'));
         }
 
         await refreshState();
@@ -1652,7 +1693,7 @@ on('change', async (kind) => {
     if (kind !== 'stats' && state.view !== 'snippets') renderPage();
 });
 
-on('notice', ({ message, error }) => toast(message, error));
+on('notice', ({ message, error }) => toast(t(message), error));
 
 async function renderGitHubStars() {
     const stars = await call('getGitHubStars').catch(() => null);
@@ -1660,7 +1701,7 @@ async function renderGitHubStars() {
     badge.hidden = stars === null || stars === undefined;
     if (!badge.hidden) {
         $('span', badge).textContent = stars >= 1000 ? `${(stars / 1000).toFixed(1).replace(/\.0$/, '')}k` : number.format(stars);
-        $('#chip-github').title = `Star Freevy on GitHub (${plural(stars, 'star')})`;
+        $('#chip-github').title = t('Star Freevy on GitHub ({count})', { count: plural(stars, 'star') });
     }
 }
 
@@ -1670,10 +1711,10 @@ async function maybeAskForStar() {
     if (starAsked || !state.app.starPrompt) return;
     starAsked = true;
     const star = await confirmDialog({
-        title: 'Enjoying Freevy?',
-        body: `Freevy already saved you ${plural(state.app.stats.totalKeystrokesSaved, 'keystroke')}. It is free and open source, built by a small community. A star on GitHub helps other people find it.`,
-        confirm: 'Star on GitHub',
-        cancel: 'No thanks',
+        title: t('Enjoying Freevy?'),
+        body: t('Freevy already saved you {count}. It is free and open source, built by a small community. A star on GitHub helps other people find it.', { count: plural(state.app.stats.totalKeystrokesSaved, 'keystroke') }),
+        confirm: t('Star on GitHub'),
+        cancel: t('No thanks'),
     });
     await call('starPromptDone', { open: star });
     state.app.starPrompt = false;
@@ -1689,6 +1730,8 @@ on('opened', async () => {
 // ---- Start ------------------------------------------------------------------------------
 
 await Promise.all([refreshState(), refreshSnippets()]);
+await setLanguage(settings().language);
+translateStatic(document.body);
 applyTheme(settings().theme, false);
 renderAllSnippetParts();
 filterSnippets();

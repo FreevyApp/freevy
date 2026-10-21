@@ -4,9 +4,12 @@
     const send = (message) => host?.postMessage(JSON.stringify(message));
     const $ = (id) => document.getElementById(id);
 
-    host?.addEventListener('message', (event) => {
+    host?.addEventListener('message', async (event) => {
         const message = JSON.parse(event.data);
         if (message.type === 'init') {
+            const i18n = await import('./i18n.js');
+            await i18n.setLanguage(message.language);
+            i18n.translateStatic(document.body);
             $('reason').textContent = message.reason;
             $('minutes').value = message.minutes;
             document.documentElement.dataset.theme = message.theme || 'freevy';

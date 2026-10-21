@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Freevy.Core;
+using Freevy.Core.Import;
 using Freevy.Core.Backup;
 using Freevy.Core.Sync;
 
@@ -20,6 +21,31 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
 
     public const string RepositoryUrl = "https://github.com/FreevyApp/freevy";
     private const int StarPromptKeystrokes = 100;
+
+    /// <summary>The short commit hash the build was made from ("1.0.7+40131d2..." in the informational version).</summary>
+    private static string? Commit()
+    {
+        var info = typeof(Bridge).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion;
+        var plus = info?.IndexOf('+') ?? -1;
+        return plus < 0 ? null : info![(plus + 1)..][..Math.Min(7, info.Length - plus - 1)];
+    }
+
+    /// <summary>Opens one of a fixed set of pages; the page never passes a URL of its own.</summary>
+    private static void OpenLink(string link)
+    {
+        var version = typeof(Bridge).Assembly.GetName().Version?.ToString(3);
+        var url = link switch
+        {
+            "website" => "https://freevy.app",
+            "releaseNotes" => $"{RepositoryUrl}/releases/tag/v{version}",
+            "issues" => $"{RepositoryUrl}/issues",
+            "license" => $"{RepositoryUrl}/blob/main/LICENSE",
+            "privacy" => "https://freevy.app/privacy",
+            _ => throw new UserError($"Unknown link '{link}'."),
+        };
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
 
     private static void OpenRepository() => Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true });
 
@@ -52,8 +78,8 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         {
             var text = ex switch
             {
-                HttpRequestException or TaskCanceledException => "Could not reach the server. Check your connection and the server address.",
-                System.Net.Sockets.SocketException => $"Could not connect: {ex.Message}",
+                HttpRequestException or TaskCanceledException => L.T("Could not reach the server. Check your connection and the server address."),
+                System.Net.Sockets.SocketException => L.T("Could not connect: {reason}", ("reason", ex.Message)),
                 _ => ex.Message,
             };
             post(JsonSerializer.Serialize(new { id, ok = false, error = text }, Json));
@@ -113,6 +139,15 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
             case "chooseFile": return ChooseFile(Text(a, "title"), Text(a, "filter"), Text(a, "initial"));
             case "exportSnippets": return ExportSnippets();
             case "importBreevy": return core.ImportBreevy();
+            case "importFrom":
+                var kind = Text(a, "kind");
+                var source = kind switch
+                {
+                    "espanso" => ChooseFolder(L.T("Choose your Espanso match folder"), Directory.Exists(EspansoImporter.DefaultMatchDirectory) ? EspansoImporter.DefaultMatchDirectory : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)),
+                    "beeftext" => ChooseFile(L.T("Choose Beeftext's comboList.json"), $"{L.T("Beeftext combos")} (comboList.json)|*.json", Path.GetDirectoryName(BeeftextImporter.DefaultFile) ?? ""),
+                    _ => ChooseFile(L.T(kind == "textexpander" ? "Choose the CSV file TextExpander exported" : "Choose a CSV file"), $"{L.T("CSV files")} (*.csv)|*.csv|{L.T("Text files")} (*.txt)|*.txt", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)),
+                };
+                return source is null ? null : core.ImportFrom(kind, source);
             case "openDataFolder": core.OpenDataFolder(); return null;
 
             case "syncNow": core.Sync.SyncNow(); return null;
@@ -130,7 +165,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
             case "restoreVersion":
                 if (!_history.TryGetValue(Text(a, "key"), out var version))
                 {
-                    throw new UserError("That version is no longer available. Open the history again.");
+                    throw new UserError(L.T("That version is no longer available. Open the history again."));
                 }
 
                 return SnippetDto(core.RestoreVersion(version));
@@ -148,6 +183,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
 
                 return null;
             case "openRepository": OpenRepository(); return null;
+            case "openLink": OpenLink(Text(a, "link")); return null;
             case "getGitHubStars": return await GitHubStars.GetAsync();
             case "previewExpansion": return core.PreviewExpansion(Text(a, "text"));
             case "checkForUpdates": await core.Updates.CheckAsync(); return State();
@@ -179,6 +215,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         return new
         {
             version = typeof(Bridge).Assembly.GetName().Version?.ToString(3),
+            commit = Commit(),
             update = new
             {
                 installed = core.Updates.IsInstalled,
@@ -195,6 +232,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
                 s.ExpansionEnabled,
                 delimiters = Settings.EscapeDelimiters(s.Delimiters),
                 s.ClipboardThreshold,
+                s.Language,
                 lineBreaks = LineBreaksName(s.LineBreaks),
                 defaultTrigger = s.DefaultTrigger.HasFlag(TriggerFlags.Immediate) ? "instant" : "after",
                 defaultWordStart = s.DefaultTrigger.HasFlag(TriggerFlags.WordStart),
@@ -287,6 +325,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
             s = s with { DefaultTrigger = TriggerFrom(trigger, wordStart) };
         }
 
+        if (a.TryGetProperty("language", out v)) s = s with { Language = v.GetString() is "en" or "tr" or "de" ? v.GetString()! : "" };
         if (a.TryGetProperty("lineBreaks", out v))
         {
             s = s with { LineBreaks = LineBreaksFrom(v.GetString()) ?? LineBreakMode.Paste };
@@ -361,7 +400,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
         });
         if (connection.Host.Length == 0 || connection.Username.Length == 0)
         {
-            throw new UserError("Enter the host and user first.");
+            throw new UserError(L.T("Enter the host and user first."));
         }
 
         var fingerprint = await Task.Run(() => SftpBackupTarget.Probe(connection));
@@ -379,7 +418,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
 
     private string? ChooseFile(string title, string filter, string initial)
     {
-        using var dialog = new OpenFileDialog { Title = title, Filter = filter.Length > 0 ? filter : "All files (*.*)|*.*" };
+        using var dialog = new OpenFileDialog { Title = title, Filter = filter.Length > 0 ? filter : $"{L.T("All files")} (*.*)|*.*" };
         if (initial.Length > 0 && Directory.Exists(initial))
         {
             dialog.InitialDirectory = initial;
@@ -392,8 +431,8 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
     {
         using var dialog = new SaveFileDialog
         {
-            Title = "Export snippets",
-            Filter = "JSON files (*.json)|*.json",
+            Title = L.T("Export snippets"),
+            Filter = $"{L.T("JSON files")} (*.json)|*.json",
             FileName = $"Freevy-snippets-{DateTime.Now:yyyyMMdd}.json",
         };
         if (dialog.ShowDialog(owner) != DialogResult.OK)

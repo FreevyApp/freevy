@@ -50,33 +50,33 @@
 
 <div class="app">
   <header class="titlebar" id="titlebar">
-    <div class="brand"><span class="brand-mark"><svg class="brand-glyph" viewBox="24 21 53 58" aria-hidden="true"><rect x="24" y="21" width="12" height="58" rx="6"/><rect x="43" y="21" width="33" height="12" rx="6"/><rect x="43" y="44" width="19" height="12" rx="6"/><circle cx="71" cy="50" r="5.5"/></svg></span>Freevy<button class="app-version" id="app-version" title="Version and updates"></button></div>
+    <div class="brand"><span class="brand-mark"><svg class="brand-glyph" viewBox="24 21 53 58" aria-hidden="true"><rect x="24" y="21" width="12" height="58" rx="6"/><rect x="43" y="21" width="33" height="12" rx="6"/><rect x="43" y="44" width="19" height="12" rx="6"/><circle cx="71" cy="50" r="5.5"/></svg></span>Freevy<button class="app-version" id="app-version" data-i18n-attr title="Version and updates"></button></div>
     <div class="status-chips" aria-live="polite">
-      <button class="chip chip--accent" id="chip-expansion" title="Turn expansion on or off"><span class="chip-dot"></span><span>Expanding</span></button>
-      <button class="chip" id="chip-sync" title="Sync now"><svg class="icon"><use href="#i-cloud"/></svg><span>Not syncing</span></button>
-      <button class="chip" id="chip-github" title="Star Freevy on GitHub"><svg class="icon icon--fill"><use href="#i-github"/></svg><span>GitHub</span><span class="chip-stars" id="github-stars" hidden><svg class="icon icon--fill"><use href="#i-star"/></svg><span></span></span></button>
-      <button class="chip" id="chip-vault" title="Lock or unlock protected snippets" hidden><svg class="icon"><use href="#i-lock"/></svg><span>Vault locked</span></button>
+      <button class="chip chip--accent" id="chip-expansion" data-i18n-attr title="Turn expansion on or off"><span class="chip-dot"></span><span>Expanding</span></button>
+      <button class="chip" id="chip-sync" data-i18n-attr title="Sync now"><svg class="icon"><use href="#i-cloud"/></svg><span>Not syncing</span></button>
+      <button class="chip" id="chip-github" data-i18n-attr title="Star Freevy on GitHub"><svg class="icon icon--fill"><use href="#i-github"/></svg><span>GitHub</span><span class="chip-stars" id="github-stars" hidden><svg class="icon icon--fill"><use href="#i-star"/></svg><span></span></span></button>
+      <button class="chip" id="chip-vault" data-i18n-attr title="Lock or unlock protected snippets" hidden><svg class="icon"><use href="#i-lock"/></svg><span>Vault locked</span></button>
     </div>
     <div class="window-controls">
-      <button class="window-button" data-window="minimize" aria-label="Minimize"><svg class="icon"><use href="#i-minimize"/></svg></button>
-      <button class="window-button" data-window="maximize" aria-label="Maximize"><svg class="icon"><use href="#i-maximize"/></svg></button>
-      <button class="window-button window-button--close" data-window="close" aria-label="Close to tray"><svg class="icon"><use href="#i-x"/></svg></button>
+      <button class="window-button" data-window="minimize" data-i18n-attr aria-label="Minimize"><svg class="icon"><use href="#i-minimize"/></svg></button>
+      <button class="window-button" data-window="maximize" data-i18n-attr aria-label="Maximize"><svg class="icon"><use href="#i-maximize"/></svg></button>
+      <button class="window-button window-button--close" data-window="close" data-i18n-attr aria-label="Close to tray"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
   </header>
 
   <div class="body">
-    <nav class="sidebar" aria-label="Sections">
-      <button class="nav-item" data-nav="snippets" aria-current="page"><svg class="icon"><use href="#i-keyboard"/></svg>Snippets<span class="count" id="nav-count"></span></button>
-      <button class="nav-item" data-nav="backups"><svg class="icon"><use href="#i-history"/></svg>Backups</button>
-      <button class="nav-item" data-nav="account"><svg class="icon"><use href="#i-cloud"/></svg>Sync &amp; account</button>
-      <button class="nav-item" data-nav="security"><svg class="icon"><use href="#i-shield"/></svg>Master password</button>
-      <button class="nav-item" data-nav="settings"><svg class="icon"><use href="#i-sliders"/></svg>Settings</button>
+    <nav class="sidebar" data-i18n-attr aria-label="Sections">
+      <button class="nav-item" data-i18n data-nav="snippets" aria-current="page"><svg class="icon"><use href="#i-keyboard"/></svg>Snippets<span class="count" id="nav-count"></span></button>
+      <button class="nav-item" data-i18n data-nav="backups"><svg class="icon"><use href="#i-history"/></svg>Backups</button>
+      <button class="nav-item" data-i18n data-nav="account"><svg class="icon"><use href="#i-cloud"/></svg>Sync &amp; account</button>
+      <button class="nav-item" data-i18n data-nav="security"><svg class="icon"><use href="#i-shield"/></svg>Master password</button>
+      <button class="nav-item" data-i18n data-nav="settings"><svg class="icon"><use href="#i-sliders"/></svg>Settings</button>
 
-      <div class="section-label" id="folders-label">Folders</div>
+      <div class="section-label" id="folders-label" data-i18n>Folders</div>
       <div class="folder-list" id="folders" aria-labelledby="folders-label"></div>
 
       <div class="saved-card">
-        <div class="label">Saved you today</div>
+        <div class="label" data-i18n>Saved you today</div>
         <div class="value" id="saved-today">0 keystrokes</div>
         <div class="inline-note" id="saved-detail"></div>
       </div>
@@ -86,24 +86,24 @@
       <section class="view snippets" data-view="snippets">
         <div class="list-pane">
           <div class="list-head">
-            <button class="edit-toggle" id="edit-toggle" aria-pressed="false" title="Select snippets to move or delete"><svg class="icon"><use href="#i-pencil"/></svg><span class="visually-hidden">Edit</span></button>
+            <button class="edit-toggle" id="edit-toggle" aria-pressed="false" data-i18n-attr title="Select snippets to move or delete"><svg class="icon"><use href="#i-pencil"/></svg><span class="visually-hidden" data-i18n>Edit</span></button>
             <label class="search">
               <svg class="icon"><use href="#i-search"/></svg>
-              <span class="visually-hidden">Search snippets</span>
-              <input id="search" type="search" placeholder="Search snippets" autocomplete="off" spellcheck="false">
+              <span class="visually-hidden" data-i18n>Search snippets</span>
+              <input id="search" type="search" data-i18n-attr placeholder="Search snippets" autocomplete="off" spellcheck="false">
               <kbd>Ctrl F</kbd>
             </label>
           </div>
-          <div class="snippet-list" id="list" role="listbox" aria-label="Snippets" tabindex="-1"><div class="list-spacer" id="list-spacer"></div></div>
+          <div class="snippet-list" id="list" role="listbox" data-i18n-attr aria-label="Snippets" tabindex="-1"><div class="list-spacer" id="list-spacer"></div></div>
           <div class="list-footer" id="list-footer"></div>
         </div>
         <div class="editor-pane" id="editor-pane">
           <div class="editor" id="editor"></div>
           <div class="save-bar" id="save-bar" role="status" hidden>
-            <span>You have unsaved changes.</span>
+            <span data-i18n>You have unsaved changes.</span>
             <span class="save-bar-actions">
-              <button class="btn btn--ghost btn--small" data-action="discard"><svg class="icon"><use href="#i-undo"/></svg>Discard</button>
-              <button class="btn btn--primary btn--small" data-action="save" title="Ctrl S"><svg class="icon"><use href="#i-check"/></svg>Save</button>
+              <button class="btn btn--ghost btn--small" data-action="discard" data-i18n><svg class="icon"><use href="#i-undo"/></svg>Discard</button>
+              <button class="btn btn--primary btn--small" data-action="save" title="Ctrl S" data-i18n><svg class="icon"><use href="#i-check"/></svg>Save</button>
             </span>
           </div>
         </div>

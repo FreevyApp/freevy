@@ -18,6 +18,7 @@ internal sealed class TrayContext : ApplicationContext
     private readonly LinkChannel _links;
     private WebWindow? _window;
     private Task<bool>? _openPrompt;
+    private readonly List<(ToolStripMenuItem Item, string Text)> _fixedItems = [];
 
     public TrayContext(DataStore store, bool startHidden, string? link = null)
     {
@@ -35,7 +36,7 @@ internal sealed class TrayContext : ApplicationContext
             }
             else if (_core.Vault.IsConfigured)
             {
-                await AskForMasterPassword("Unlock your protected snippets.");
+                await AskForMasterPassword(L.T("Unlock your protected snippets."));
             }
         });
 
@@ -55,6 +56,12 @@ internal sealed class TrayContext : ApplicationContext
             new ToolStripSeparator(),
             new ToolStripMenuItem("Exit", null, (_, _) => ExitThread()),
         ]);
+        foreach (var item in menu.Items.OfType<ToolStripMenuItem>().Where(i => i != updateItem && i != _lockItem))
+        {
+            _fixedItems.Add((item, item.Text ?? ""));
+            item.Text = L.T(item.Text ?? "");
+        }
+
         menu.Opening += (_, _) => UpdateMenu();
 
         _tray = new NotifyIcon { Icon = AppIcon.Tray(), Text = AppName, ContextMenuStrip = menu, Visible = true };
@@ -82,16 +89,16 @@ internal sealed class TrayContext : ApplicationContext
 
         _core.Updates.Available += version =>
         {
-            updateItem.Text = $"Install Freevy {version}";
+            updateItem.Text = L.T("Install Freevy {version}", ("version", version));
             updateItem.Visible = true;
-            _core.Notify($"Freevy {version} is available. Install it from Settings or the tray menu.");
+            _core.Notify(L.T("Freevy {version} is available. Install it from Settings or the tray menu.", ("version", version)));
             _core.RaiseChanged(Change.Settings);
         };
         _core.Updates.Ready += version =>
         {
-            updateItem.Text = $"Restart to update to {version}";
+            updateItem.Text = L.T("Restart to update to {version}", ("version", version));
             updateItem.Visible = true;
-            _core.Notify($"Freevy {version} is ready. It installs the next time Freevy starts, or restart it from the tray menu.");
+            _core.Notify(L.T("Freevy {version} is ready. It installs the next time Freevy starts, or restart it from the tray menu.", ("version", version)));
             _core.RaiseChanged(Change.Settings);
         };
         if (!WebWindow.Offscreen)
@@ -146,14 +153,19 @@ internal sealed class TrayContext : ApplicationContext
         _enabledItem.Checked = _core.Settings.ExpansionEnabled;
         _lockItem.Enabled = _core.Vault.IsConfigured;
         _lockItem.Text = _core.Vault.IsUnlocked
-            ? $"Lock protected snippets (unlocked until {_core.Vault.LocksAtLocal:HH:mm})"
-            : "Unlock protected snippets…";
+            ? L.T("Lock protected snippets (unlocked until {time})", ("time", $"{_core.Vault.LocksAtLocal:HH:mm}"))
+            : L.T("Unlock protected snippets…");
+        // The language can change while Freevy runs; the fixed items are relabelled when the menu opens.
+        foreach (var (item, text) in _fixedItems)
+        {
+            item.Text = L.T(text);
+        }
     }
 
     private void UpdateTrayText()
     {
-        var state = _core.Settings.ExpansionEnabled ? $"{_core.AbbreviationCount} abbreviations" : "paused";
-        var vault = _core.Vault.IsUnlocked ? ", unlocked" : "";
+        var state = _core.Settings.ExpansionEnabled ? L.T("{count} abbreviations", ("count", _core.AbbreviationCount)) : L.T("paused");
+        var vault = _core.Vault.IsUnlocked ? L.T(", unlocked") : "";
         var text = $"{AppName}: {state}{vault}";
         _tray.Text = text.Length > 127 ? text[..127] : text;
     }

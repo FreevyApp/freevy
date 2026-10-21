@@ -19,7 +19,7 @@ internal sealed class PromptWindow : Form
     {
         _core = core;
         _reason = reason;
-        Text = "Unlock Freevy";
+        Text = L.T("Unlock Freevy");
         Icon = AppIcon.Get();
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
@@ -51,7 +51,7 @@ internal sealed class PromptWindow : Form
             switch (root.GetProperty("type").GetString())
             {
                 case "ready":
-                    Post(new { type = "init", reason = _reason, minutes = _core.Settings.UnlockMinutes, theme = _core.Settings.Theme });
+                    Post(new { type = "init", language = L.Language, reason = _reason, minutes = _core.Settings.UnlockMinutes, theme = _core.Settings.Theme });
                     break;
                 case "unlock":
                     var ok = _core.Unlock(root.GetProperty("password").GetString() ?? "", root.GetProperty("minutes").GetInt32());
@@ -62,7 +62,7 @@ internal sealed class PromptWindow : Form
                     }
                     else
                     {
-                        Post(new { type = "error", message = "Wrong master password." });
+                        Post(new { type = "error", message = L.T("Wrong master password.") });
                     }
 
                     break;

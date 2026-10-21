@@ -20,7 +20,7 @@ internal sealed class FillWindow : Form
     {
         _requests = requests;
         _theme = theme;
-        Text = "Fill in";
+        Text = L.T("Fill in");
         Icon = AppIcon.Get();
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
@@ -51,7 +51,7 @@ internal sealed class FillWindow : Form
             switch (root.GetProperty("type").GetString())
             {
                 case "ready":
-                    Post(new { type = "init", theme = _theme, fields = _requests.Select(r => new { key = r.Key, label = r.Label }) });
+                    Post(new { type = "init", theme = _theme, language = L.Language, fields = _requests.Select(r => new { key = r.Key, label = r.Label }) });
                     break;
                 case "submit":
                     var values = root.GetProperty("values").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString() ?? "", StringComparer.OrdinalIgnoreCase);

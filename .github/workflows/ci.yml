@@ -20,3 +20,5 @@ jobs:
         run: dotnet test tests/Freevy.Core.Tests -c Release
       - name: Build the app
         run: dotnet build src/Freevy.App -c Release
+      - name: Check translations
+        run: node build/i18n-check.mjs

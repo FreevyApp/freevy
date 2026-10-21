@@ -170,10 +170,10 @@ internal sealed class OutputSender(int clipboardThreshold, LineBreakMode lineBre
     }
 
     private static INPUT Key(int vk, uint flags) =>
-        new() { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wVk = (ushort)vk, dwFlags = flags } } };
+        new() { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wVk = (ushort)vk, dwFlags = flags, dwExtraInfo = OwnInputMarker } } };
 
     private static INPUT Unicode(char c, uint flags) =>
-        new() { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = c, dwFlags = flags } } };
+        new() { type = INPUT_KEYBOARD, u = new InputUnion { ki = new KEYBDINPUT { wScan = c, dwFlags = flags, dwExtraInfo = OwnInputMarker } } };
 
     private static void Send(List<INPUT> inputs)
     {

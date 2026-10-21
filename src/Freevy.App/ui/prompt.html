@@ -17,15 +17,15 @@
 <div class="prompt">
   <div class="prompt-bar" id="bar">
     <span class="brand-mark"><svg class="brand-glyph" viewBox="24 21 53 58" aria-hidden="true"><rect x="24" y="21" width="12" height="58" rx="6"/><rect x="43" y="21" width="33" height="12" rx="6"/><rect x="43" y="44" width="19" height="12" rx="6"/><circle cx="71" cy="50" r="5.5"/></svg></span>
-    <strong>Unlock protected snippets</strong>
-    <button class="window-button window-button--close" id="cancel-x" aria-label="Cancel"><svg class="icon"><use href="#i-x"/></svg></button>
+    <strong data-i18n>Unlock protected snippets</strong>
+    <button class="window-button window-button--close" id="cancel-x" data-i18n-attr aria-label="Cancel"><svg class="icon"><use href="#i-x"/></svg></button>
   </div>
   <form class="prompt-body" id="form">
     <p id="reason">Enter your master password.</p>
-    <label class="field"><span class="visually-hidden">Master password</span><input class="input" id="password" type="password" autocomplete="current-password" placeholder="Master password" required></label>
-    <div class="prompt-row"><span>Stay unlocked for</span><input class="input input--narrow" id="minutes" type="number" min="1" max="1440" value="5"><span>minutes</span></div>
+    <label class="field"><span class="visually-hidden" data-i18n>Master password</span><input class="input" id="password" type="password" autocomplete="current-password" data-i18n-attr placeholder="Master password" required></label>
+    <div class="prompt-row"><span data-i18n>Stay unlocked for</span><input class="input input--narrow" id="minutes" type="number" min="1" max="1440" value="5"><span data-i18n>minutes</span></div>
     <div class="field-error" id="error" hidden></div>
-    <div class="dialog-actions"><button type="button" class="btn btn--ghost" id="cancel">Cancel</button><button type="submit" class="btn btn--primary" id="unlock">Unlock</button></div>
+    <div class="dialog-actions"><button type="button" class="btn btn--ghost" id="cancel" data-i18n>Cancel</button><button type="submit" class="btn btn--primary" id="unlock" data-i18n>Unlock</button></div>
   </form>
 </div>
 <script src="js/prompt.js"></script>

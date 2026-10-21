@@ -1,8 +1,11 @@
 // Reusable UI pieces: escaping, icons, dialogs, popover menus and toasts.
 
+import { t, currentLocale } from './i18n.js';
+
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-export const number = new Intl.NumberFormat('en');
+// Formats in the app's language, which is only known once the settings have loaded.
+export const number = { format: (value) => new Intl.NumberFormat(currentLocale()).format(value) };
 
 export function escapeHtml(text) {
     return String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -12,15 +15,15 @@ export const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#
 
 export function timeAgo(iso) {
     if (!iso) {
-        return 'never';
+        return t('never');
     }
 
     const date = new Date(iso);
     const minutes = Math.round((Date.now() - date.getTime()) / 60000);
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes} min ago`;
+    if (minutes < 1) return t('just now');
+    if (minutes < 60) return t('{count} min ago', { count: minutes });
     const sameDay = date.toDateString() === new Date().toDateString();
-    return sameDay ? date.toTimeString().slice(0, 5) : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ' + date.toTimeString().slice(0, 5);
+    return sameDay ? date.toTimeString().slice(0, 5) : date.toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short' }) + ' ' + date.toTimeString().slice(0, 5);
 }
 
 // ---- Dialog ---------------------------------------------------------------------
@@ -29,7 +32,7 @@ export function timeAgo(iso) {
  * Opens a native <dialog>. `fields` render as inputs; `onSubmit(values)` may throw to show
  * an error and keep the dialog open. Resolves with the values, or null when cancelled.
  */
-export function dialog({ title, body = '', fields = [], checks = [], confirm = 'OK', cancel = 'Cancel', danger = false, onSubmit }) {
+export function dialog({ title, body = '', fields = [], checks = [], confirm = t('OK'), cancel = t('Cancel'), danger = false, onSubmit }) {
     return new Promise((resolve) => {
         const element = document.createElement('dialog');
         element.className = 'dialog';

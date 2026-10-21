@@ -1,0 +1,77 @@
+[
+  {
+    "Abbreviations": [
+      ";sig"
+    ],
+    "Expansion": "Kind regards,\nJane Doe\nSupport Lead · Example Ltd.",
+    "Description": "Email signature",
+    "Case": "Adapt",
+    "Trigger": "WordStart, AfterDelimiter",
+    "Folder": "Emails",
+    "Created": "2026-10-21T10:00:00",
+    "Modified": "2026-10-21T10:00:00",
+    "Protected": false,
+    "Encrypted": null,
+    "Id": "3e51aa0d-8d1e-4ef9-9f6f-a7aa2026fbcb"
+  },
+  {
+    "Abbreviations": [
+      ";thx"
+    ],
+    "Expansion": "Thanks a lot for getting back to me so quickly!",
+    "Description": "Quick thanks",
+    "Case": "Adapt",
+    "Trigger": "WordStart, AfterDelimiter",
+    "Folder": "Emails",
+    "Created": "2026-10-21T10:00:00",
+    "Modified": "2026-10-21T10:00:00",
+    "Protected": false,
+    "Encrypted": null,
+    "Id": "ad1d53ed-e0b5-4611-97d3-fb1551f95c06"
+  },
+  {
+    "Abbreviations": [
+      ";date"
+    ],
+    "Expansion": "%(MonthName) %(#Day), %(Year)",
+    "Description": "Today, long",
+    "Case": "Adapt",
+    "Trigger": "WordStart, AfterDelimiter",
+    "Folder": "Dates",
+    "Created": "2026-10-21T10:00:00",
+    "Modified": "2026-10-21T10:00:00",
+    "Protected": false,
+    "Encrypted": null,
+    "Id": "82c4a05f-5888-4122-9794-46425f7586e2"
+  },
+  {
+    "Abbreviations": [
+      "teh"
+    ],
+    "Expansion": "the",
+    "Description": "Typo",
+    "Case": "Adapt",
+    "Trigger": "WordStart, AfterDelimiter",
+    "Folder": "Typo fixes",
+    "Created": "2026-10-21T10:00:00",
+    "Modified": "2026-10-21T10:00:00",
+    "Protected": false,
+    "Encrypted": null,
+    "Id": "2065bdf4-f6f2-4c84-a289-8caee3f04789"
+  },
+  {
+    "Abbreviations": [
+      "recieve"
+    ],
+    "Expansion": "receive",
+    "Description": "Typo",
+    "Case": "Adapt",
+    "Trigger": "WordStart, AfterDelimiter",
+    "Folder": "Typo fixes",
+    "Created": "2026-10-21T10:00:00",
+    "Modified": "2026-10-21T10:00:00",
+    "Protected": false,
+    "Encrypted": null,
+    "Id": "9393407b-ff80-4900-87ba-8ee2265be470"
+  }
+]

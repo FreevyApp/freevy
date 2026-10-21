@@ -58,7 +58,8 @@ internal sealed class InputHooks : IDisposable
         if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN))
         {
             var data = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-            if ((data.flags & LLKHF_INJECTED) == 0)
+            // Freevy's own output must never trigger it again; keys injected by anything else count as typing.
+            if ((data.flags & LLKHF_INJECTED) == 0 || data.dwExtraInfo != OwnInputMarker)
             {
                 HandleKey(data);
             }

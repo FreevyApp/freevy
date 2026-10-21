@@ -12,6 +12,12 @@ internal static class Native
     public const int WM_RBUTTONDOWN = 0x0204;
     public const int WM_MBUTTONDOWN = 0x0207;
     public const uint LLKHF_INJECTED = 0x10;
+
+    /// <summary>
+    /// Put in dwExtraInfo of every key Freevy sends, so its own hook can tell them apart from other
+    /// injected input (the on-screen and touch keyboards, accessibility and automation tools), which it handles.
+    /// </summary>
+    public static readonly IntPtr OwnInputMarker = new(0x46524556); // "FREV"
     public const uint LLMHF_INJECTED = 0x01;
 
     public const int INPUT_KEYBOARD = 1;

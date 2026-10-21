@@ -6,12 +6,18 @@ A free, modern text expander for Windows. Type a short abbreviation, get the who
 
 **[Download for Windows](https://freevy.app/download)** · [freevy.app](https://freevy.app) · [Privacy](https://freevy.app/privacy)
 
+![Freevy typing a thank-you line, the date and a three-line signature from short abbreviations, and fixing "Teh" to "The"](docs/images/freevy-demo.gif)
+
 ## Features
 
 - Expands abbreviations in any Windows app, after a space or punctuation or instantly, with case adaptation (`teh`, `Teh`, `TEH`).
 - A modern window with search, folders and many themes; lives in the tray and starts with Windows.
 - Protected snippets for passwords: encrypted with a master password, unlocked for a few minutes at a time.
 - Scheduled backups to a local folder, a synced folder (Google Drive, OneDrive, Dropbox) or an SFTP server.
+- Breevy-compatible `%(...)` macros: dates, key presses such as `%(Key Shift+Enter)`, the cursor, the clipboard, fill-in fields and more.
+- Multi-line snippets are pasted as one piece, so chat apps such as Slack, Discord or Teams do not send half a message.
+- Imports Breevy and aBreevy8 libraries, Espanso match files, Beeftext combos, TextExpander CSV exports and any CSV file.
+- In English, Turkish and German.
 - Optional free account: end-to-end encrypted sync with version history, and a web snippet manager. The server only ever stores data it cannot read.
 - Imports an existing Breevy library on first start.
 - Updates itself in the background.

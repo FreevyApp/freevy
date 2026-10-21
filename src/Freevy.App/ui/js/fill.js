@@ -6,10 +6,13 @@
     const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     let fields = [];
 
-    host?.addEventListener('message', (event) => {
+    host?.addEventListener('message', async (event) => {
         const message = JSON.parse(event.data);
         if (message.type !== 'init') return;
         document.documentElement.dataset.theme = message.theme || 'freevy';
+        const i18n = await import('./i18n.js');
+        await i18n.setLanguage(message.language);
+        i18n.translateStatic(document.body);
         fields = message.fields;
         $('fields').innerHTML = fields.map((f, i) => `
             <label class="field"><span>${escapeHtml(f.label)}</span>

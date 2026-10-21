@@ -240,7 +240,7 @@ internal sealed class SyncManager : IDisposable
         var dataKey = Secrets.Unprotect(sync.ProtectedDataKey);
         if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(dataKey))
         {
-            LastError = "The saved sign-in cannot be read on this computer. Sign in again.";
+            LastError = L.T("The saved sign-in cannot be read on this computer. Sign in again.");
             StatusChanged?.Invoke();
             return;
         }
@@ -277,7 +277,7 @@ internal sealed class SyncManager : IDisposable
             else
             {
                 LastError = error is HttpRequestException or TaskCanceledException
-                    ? "Could not reach the Freevy server. Will try again."
+                    ? L.T("Could not reach the Freevy server. Will try again.")
                     : error.Message;
             }
 
@@ -307,7 +307,7 @@ internal sealed class SyncManager : IDisposable
 
         _store.SaveSyncState(outcome.State);
         LastError = outcome.VaultConflict
-            ? "This computer and your account use different master passwords. Protected snippets from other computers will not open here."
+            ? L.T("This computer and your account use different master passwords. Protected snippets from other computers will not open here.")
             : null;
 
         if (snippetsChanged || outcome.VaultReplaced)
