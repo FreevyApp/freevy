@@ -325,7 +325,7 @@ internal sealed class Bridge(AppCore core, IWin32Window owner, Action<string> wi
             s = s with { DefaultTrigger = TriggerFrom(trigger, wordStart) };
         }
 
-        if (a.TryGetProperty("language", out v)) s = s with { Language = v.GetString() is "en" or "tr" or "de" ? v.GetString()! : "" };
+        if (a.TryGetProperty("language", out v)) s = s with { Language = v.GetString() is "en" or "tr" or "de" or "ru" ? v.GetString()! : "" };
         if (a.TryGetProperty("lineBreaks", out v))
         {
             s = s with { LineBreaks = LineBreaksFrom(v.GetString()) ?? LineBreakMode.Paste };

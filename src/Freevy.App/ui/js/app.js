@@ -1,7 +1,7 @@
 // Freevy desktop UI: renders the app state from C# (or the demo backend) and sends user actions back.
 import { call, on, isDemo } from './bridge.js';
 import { $, $$, escapeHtml, icon, number, timeAgo, dialog, confirmDialog, menu, toast } from './ui.js';
-import { t, setLanguage, translateStatic } from './i18n.js';
+import { t, setLanguage, translateStatic, pluralKey } from './i18n.js';
 
 // Order and names for the theme picker; the colors live in css/themes.css.
 const THEMES = [
@@ -58,7 +58,8 @@ const settings = () => state.app.settings;
 const isMasked = (s) => settings().maskFoldersContaining && s.folder.toLowerCase().includes(settings().maskFoldersContaining.toLowerCase());
 const firstLine = (text) => (text ?? '').split(String.fromCharCode(10))[0];
 // The words are translation keys: "snippet" and "snippets" each have an entry per language.
-const plural = (n, word, many = `${word}s`) => `${number.format(n)} ${n === 1 ? t(word) : t(many)}`;
+// pluralKey picks the right form, including the third one that Russian needs.
+const plural = (n, word, many = `${word}s`) => `${number.format(n)} ${t(pluralKey(n, word, many))}`;
 
 async function refreshState() {
     state.app = await call('getState');
@@ -1131,7 +1132,7 @@ function renderSettings() {
 
         <div class="group">
             <div class="group-title">${t('General')}</div>
-            ${row(t('Language'), t('Follows Windows unless you choose one.'), `<select class="input input--medium" data-setting-select="language" aria-label="${t('Language')}">${[['', t('Like Windows')], ['en', 'English'], ['tr', 'Türkçe'], ['de', 'Deutsch']].map(([v, label]) => `<option value="${v}" ${v === (s.language ?? '') ? 'selected' : ''}>${label}</option>`).join('')}</select>`)}
+            ${row(t('Language'), t('Follows Windows unless you choose one.'), `<select class="input input--medium" data-setting-select="language" aria-label="${t('Language')}">${[['', t('Like Windows')], ['en', 'English'], ['tr', 'Türkçe'], ['de', 'Deutsch'], ['ru', 'Русский']].map(([v, label]) => `<option value="${v}" ${v === (s.language ?? '') ? 'selected' : ''}>${label}</option>`).join('')}</select>`)}
             ${row(t('Expand abbreviations'), t('Pause Freevy without closing it. Also on the chip in the title bar.'), toggle('expansionEnabled', s.expansionEnabled, t('Expand abbreviations')))}
             ${row(t('Start with Windows'), t('Freevy starts in the tray when you sign in to Windows.'), toggle('autostart', s.autostart, t('Start with Windows')))}
             ${row(t('Updates'), t('A few times a day Freevy asks freevy.app for a new version. The request carries your Freevy version and nothing else about you.'), segmented(t('Updates'), 'updateMode', s.updateMode, [['install', t('Install automatically')], ['notify', t('Only tell me')], ['off', t('Off')]]))}
@@ -1162,7 +1163,7 @@ function renderSettings() {
 
         <div class="group">
             <div class="group-title">${t('Your data')}</div>
-            ${row(t('Import from Breevy'), state.app.breevyAvailable ? 'Replaces your snippets with your Breevy library. The current ones are backed up first.' : 'No Breevy library found on this PC.', `<button class="btn btn--small" data-action="import-breevy" ${state.app.breevyAvailable ? '' : 'disabled'}>${icon('download')}${t('Import')}</button>`)}
+            ${row(t('Import from Breevy'), state.app.breevyAvailable ? t('Replaces your snippets with your Breevy library. The current ones are backed up first.') : t('No Breevy library found on this PC.'), `<button class="btn btn--small" data-action="import-breevy" ${state.app.breevyAvailable ? '' : 'disabled'}>${icon('download')}${t('Import')}</button>`)}
             ${row(t('Import from another app'), t('Espanso, Beeftext, TextExpander (CSV export) or any CSV file. Adds to your snippets; nothing is replaced.'), `<button class="btn btn--small" data-action="import-other" aria-haspopup="menu">${icon('download')}${t('Import…')}</button>`)}
             ${row(t('Export snippets'), t('A JSON file with all snippets; protected ones stay encrypted.'), `<button class="btn btn--small" data-action="export">${icon('upload')}${t('Export…')}</button>`)}
             ${row(t('Data folder'), escapeHtml(state.app.dataDirectory), `<button class="btn btn--small" data-action="open-data">${icon('folder')}${t('Open')}</button>`)}

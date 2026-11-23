@@ -13,14 +13,14 @@ internal static partial class L
 {
     private static Dictionary<string, string> _strings = [];
 
-    /// <summary>"en", "tr" or "de"; what the pages and this class translate into.</summary>
+    /// <summary>"en", "tr", "de" or "ru"; what the pages and this class translate into.</summary>
     public static string Language { get; private set; } = "en";
 
     /// <param name="choice">The setting: "" follows the Windows display language.</param>
     public static void Use(string? choice)
     {
         var pick = string.IsNullOrEmpty(choice) ? CultureInfo.CurrentUICulture.TwoLetterISOLanguageName : choice;
-        var language = pick is "tr" or "de" ? pick : "en";
+        var language = pick is "tr" or "de" or "ru" ? pick : "en";
         if (language == Language && (_strings.Count > 0 || language == "en"))
         {
             return;
