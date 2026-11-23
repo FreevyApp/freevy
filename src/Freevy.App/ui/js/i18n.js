@@ -2,7 +2,7 @@
 // ui/i18n/<language>.json and falls back to the English text when a translation is missing.
 // Placeholders are written {name} and filled from the params object.
 
-export const LANGUAGES = ['en', 'tr', 'de'];
+export const LANGUAGES = ['en', 'tr', 'de', 'ru'];
 
 let strings = {};
 let locale = 'en';
@@ -31,6 +31,22 @@ export const currentLocale = () => locale;
 export function t(text, params) {
     const template = strings[text] ?? text;
     return params ? template.replace(/\{(\w+)\}/g, (match, key) => (key in params ? String(params[key]) : match)) : template;
+}
+
+/**
+ * The key for a counted word: one, many, or for languages such as Russian that need a third form,
+ * the "<plural> (few)" (2–4) and "<plural> (many)" (5, 0, 11–14) keys.
+ */
+export function pluralKey(n, one, many) {
+    if (locale === 'ru') {
+        const lastTwo = n % 100;
+        const last = n % 10;
+        if (last === 1 && lastTwo !== 11) return one;
+        if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `${many} (few)`;
+        return `${many} (many)`;
+    }
+
+    return n === 1 ? one : many;
 }
 
 // Keys come from the HTML source, where "&" is written "&amp;"; the text node holds the decoded "&".

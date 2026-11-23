@@ -17,7 +17,7 @@ A free, modern text expander for Windows. Type a short abbreviation, get the who
 - Breevy-compatible `%(...)` macros: dates, key presses such as `%(Key Shift+Enter)`, the cursor, the clipboard, fill-in fields and more.
 - Multi-line snippets are pasted as one piece, so chat apps such as Slack, Discord or Teams do not send half a message.
 - Imports Breevy and aBreevy8 libraries, Espanso match files, Beeftext combos, TextExpander CSV exports and any CSV file.
-- In English, Turkish and German.
+- In English, Turkish, German and Russian.
 - Optional free account: end-to-end encrypted sync with version history, and a web snippet manager. The server only ever stores data it cannot read.
 - Imports an existing Breevy library on first start.
 - Updates itself in the background.
